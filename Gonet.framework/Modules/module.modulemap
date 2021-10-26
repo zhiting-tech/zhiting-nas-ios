@@ -1,0 +1,8 @@
+framework module "Gonet" {
+	header "ref.h"
+    header "Gonet.objc.h"
+    header "Universe.objc.h"
+    header "Gonet.h"
+
+    export *
+}
