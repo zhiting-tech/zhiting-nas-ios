@@ -1,6 +1,6 @@
 source 'https://github.com/CocoaPods/Specs.git'
 platform:ios, '13.0'
-target 'ZhiTingCloud' do
+target 'ZhiTingNas' do
   use_frameworks!
 
   pod 'Alamofire'
@@ -12,5 +12,5 @@ target 'ZhiTingCloud' do
   pod 'Toast-Swift'
   pod 'TZImagePickerController'
   pod 'MJRefresh'
-
+  pod 'AttributedString'
 end

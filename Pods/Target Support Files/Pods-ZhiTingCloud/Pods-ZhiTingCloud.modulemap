@@ -1,6 +1,0 @@
-framework module Pods_ZhiTingCloud {
-  umbrella header "Pods-ZhiTingCloud-umbrella.h"
-
-  export *
-  module * { export * }
-}
