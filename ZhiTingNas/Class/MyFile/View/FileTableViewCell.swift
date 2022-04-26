@@ -10,13 +10,13 @@ import UIKit
 class FileTableViewCell: UITableViewCell,ReusableView {
     
     lazy var iconImgView = ImageView().then{
-        $0.contentMode = .scaleAspectFill
+        $0.contentMode = .scaleAspectFit
         $0.image = .assets(.myFile_tab)
     }
     
     //加密文件夹
     lazy var encryptImgView = ImageView().then{
-        $0.contentMode = .scaleAspectFill
+        $0.contentMode = .scaleAspectFit
         $0.image = .assets(.encrypt_icon)
     }
     

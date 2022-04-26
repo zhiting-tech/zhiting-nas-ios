@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Alamofire
 import Moya
 
 
@@ -27,12 +28,67 @@ fileprivate let requestClosure = { (endpoint: Endpoint, closure: (Result<URLRequ
 }
 
 class NetworkManager {
+    
+    var HttpString = "https://"
+    
     static let shared = NetworkManager()
     
     private init() {}
     
-    private lazy var apiService = MoyaProvider<ApiService>(requestClosure: requestClosure, callbackQueue: DispatchQueue.main)
+    /// 处理证书信任的urlSession
+    lazy var mySession: Moya.Session = {
+        let configuration = URLSessionConfiguration.default
+        configuration.headers = .default
+        return Session(configuration: configuration, delegate: MySessionDelegate(), startRequestsImmediately: false)
+    }()
+    
+    lazy var apiService = MoyaProvider<ApiService>(requestClosure: requestClosure, session: mySession)
+    
+//    private lazy var apiService = MoyaProvider<ApiService>(requestClosure: requestClosure, callbackQueue: DispatchQueue.main)
 
+}
+
+final class MySessionDelegate: SessionDelegate {
+    override func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge, completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        //        super.urlSession(session, task: task, didReceive: challenge, completionHandler: completionHandler)
+        
+        let areaId = AreaManager.shared.currentArea.id
+        
+        let urlString = task.currentRequest?.url?.absoluteString ?? ""
+        
+        if let serverTrust = challenge.protectionSpace.serverTrust,
+           let certificate = SecTrustGetCertificateAtIndex(serverTrust, 0) {
+            
+            //证书信息
+            let remoteCertificateData: Data = SecCertificateCopyData(certificate) as Data
+            
+            //正则获取当前host
+            let regulaStr = "^http(s)?://(.*?)/"
+            guard let regex = try? NSRegularExpression(pattern: regulaStr, options: []) else {
+                return
+            }
+            
+            let results = regex.matches(in: urlString, options: [], range: NSRange(location: 0, length: urlString.count))
+            var urls = [String]()
+            if results.count > 0 {
+                for result in results {
+                    let str = (urlString as NSString).substring(with: result.range)
+                    urls.append(str)
+                }
+            }
+            
+//            let url = urls.first ?? ""
+            //SC，直接信任
+//            if url.contains(cloudUrl) {
+                let credential = URLCredential(trust: serverTrust)
+                challenge.sender?.use(credential, for: challenge)
+                // 证书校验通过
+                completionHandler(Foundation.URLSession.AuthChallengeDisposition.useCredential, credential)
+                return
+//            }
+            
+        }
+    }
 }
 
 extension NetworkManager {
@@ -54,6 +110,18 @@ extension NetworkManager {
     
     // MARK: - 用户相关
     
+    func login(phone: String, pwd: String, successCallback: ((LoginResponse) -> Void)?, failureCallback: ((Int, String) -> Void)?) {
+        self.apiService.requestNetwork(.login(phone: phone, pwd: pwd),
+                                       modelType: LoginResponse.self,
+                                       successCallback: successCallback,
+                                       failureCallback: failureCallback)
+    }
+    
+    // 获取家庭列表信息
+    func getAreasToken(user_id: Int, type: String,successCallback: ((LoginAreasResponse) -> Void)?, failureCallback: ((Int, String) -> Void)?){
+        self.apiService.requestNetwork(.getAreasToken(user_id: user_id, type: type), modelType: LoginAreasResponse.self, successCallback: successCallback, failureCallback: failureCallback)
+    }
+
     /// 获取SA用户详情
     /// - Parameters:
     ///   - id: 用户id
@@ -65,7 +133,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.userDetail(area : area, id: id),
@@ -89,7 +157,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.userList(area: area),
@@ -116,7 +184,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.createDirectory(area : area, path: path, name: name, pwd: pwd),
@@ -141,7 +209,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.deleteFile(area : area, paths: paths),
@@ -165,7 +233,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.renameFile(area : area, path: path, name: name),
@@ -189,7 +257,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.fileChunks(area : area, hash: hash),
@@ -213,7 +281,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.fileList(area : area, path: path, type: type, page: page, page_size: page_size, pwd: pwd),
@@ -238,7 +306,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.shareFileList(area : area, page: page, page_size: page_size),
@@ -269,7 +337,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.shareFiles(area : area, paths: paths, usersId: usersId, read: read, write: write, delete: delete, from_user: fromUser),
@@ -295,7 +363,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.moveFiles(area : area, sources: sources, action: action,  destination_pwd:destination_pwd,destination: destination),
@@ -321,7 +389,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.folderList(area : area, page: page, pageSize: pageSize),
@@ -346,7 +414,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.folderDetail(area : area, id: id),
@@ -391,7 +459,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.createFolder(
@@ -446,7 +514,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.editFolder(
@@ -483,7 +551,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.editFolderPwd(area : area,
@@ -513,7 +581,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.deleteFolder(area : area, id: id),
@@ -540,7 +608,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.decryptFolder(area : area, name: name, password: password),
@@ -564,7 +632,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.hardDiskList(area : area), modelType: HardDiskListResposne.self, successCallback: successCallback, failureCallback: failureCallback)
@@ -588,7 +656,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.addDiskToPool(area : area, pool_name: pool_name, disk_name: disk_name), modelType: ExampleResponse.self, successCallback: successCallback, failureCallback: failureCallback)
@@ -613,7 +681,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.storagePoolList(area : area, page: page, pageSize: pageSize),
@@ -638,7 +706,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.storagePoolDetail(area : area, name: name),
@@ -665,7 +733,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.editStoragePool(area : area, name: name, new_name: new_name),
@@ -691,7 +759,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.deleteStoragePool(area : area, name: name),
@@ -717,7 +785,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.addStoragePool(area : area, name: name, disk_name: disk_name),
@@ -748,7 +816,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.editPartition(area : area, name: name, new_name: new_name, pool_name: pool_name, capacity: capacity, unit: unit),
@@ -772,7 +840,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.deletePartition(area : area, name: name, pool_name: pool_name),
@@ -798,7 +866,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.addPartition(area : area, name: name, capacity: capacity, unit: unit, pool_name: pool_name), modelType: ExampleResponse.self, successCallback: successCallback, failureCallback: failureCallback)
@@ -819,7 +887,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.folderSettings(area : area), modelType: FolderSettingModel.self, successCallback: successCallback, failureCallback: failureCallback)
@@ -843,7 +911,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.editFolderSettings(area : area, pool_name: poolName, partition_name: partitionName, is_auto_del: autoDel), modelType: ExampleResponse.self, successCallback: successCallback, failureCallback: failureCallback)
@@ -864,7 +932,7 @@ extension NetworkManager {
             guard let self = self else { return }
             //获取临时通道地址
             if ip != "" {
-                area.temporaryIP = "http://" + ip
+                area.temporaryIP = self.HttpString + ip
             }
             //请求结果
             self.apiService.requestNetwork(.restartAsyncTask(area : area, task_id: task_id), modelType: ExampleResponse.self, successCallback: successCallback, failureCallback: failureCallback)
@@ -890,11 +958,11 @@ extension NetworkManager {
 
 extension NetworkManager{
     //获取临时通道地址
-    private func requestTemporaryIP(area: Area = AreaManager.shared.currentArea, complete:((String)->())?, failureCallback: ((Int, String) -> ())?) {
+    public func requestTemporaryIP(area: Area = AreaManager.shared.currentArea, complete:((String)->())?, failureCallback: ((Int, String) -> ())?) {
         //在局域网内则直接连接局域网
         if area.bssid == NetworkStateManager.shared.getWifiBSSID() && area.bssid != nil || !UserManager.shared.isCloudUser {//局域网
             complete?("")
-            GoFileNewManager.shared.updateHost(host: "\(AreaManager.shared.currentArea.sa_lan_address ?? "")/api")
+            GoFileManager.shared.updateHost(host: AreaManager.shared.currentArea.sa_lan_address ?? "")
             return
         }
         
@@ -909,17 +977,17 @@ extension NetworkManager{
         let temporaryJsonStr:String = UserDefaults.standard.value(forKey: key) as? String ?? ""
         let temporary = TemporaryResponse.deserialize(from: temporaryJsonStr)
         //验证是否过期，直接返回IP地址
-        if let temporary = temporary {//有存储信息
+        if let temporary = temporary, key != "" {//有存储信息
             if timeInterval(fromTime: temporary.saveTime , second: temporary.expires_time) {
                 //地址并未过期
-                GoFileNewManager.shared.updateHost(host: "http://\(temporary.host)/api")
+                GoFileManager.shared.updateHost(host: self.HttpString + temporary.host)
                 complete?(temporary.host)
                 return
             }
         }
         
         //过期，请求服务器获取临时通道地址
-        apiService.requestNetwork(.temporaryIP(area: AreaManager.shared.currentArea, scheme: "http"), modelType: TemporaryResponse.self) { response in
+        apiService.requestNetwork(.temporaryIP(area: AreaManager.shared.currentArea, scheme: "https"), modelType: TemporaryResponse.self) { response in
             //获取临时通道地址及有效时间,存储在本地
             //更新时间和密码
             let temporaryModel = TemporaryResponse()
@@ -933,7 +1001,7 @@ extension NetworkManager{
             
             //返回ip地址
             complete?(response.host)
-            GoFileNewManager.shared.updateHost(host: "http://\(response.host)/api")
+            GoFileManager.shared.updateHost(host: self.HttpString + response.host)
 
         } failureCallback: { code, error in
             failureCallback?(code,error)

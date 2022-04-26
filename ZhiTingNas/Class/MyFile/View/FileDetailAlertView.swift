@@ -17,6 +17,7 @@ class FileDetailAlertView: UIView {
         case copy
         case rename
         case delete
+        case preview
         
         var icon: UIImage? {
             switch self {
@@ -32,6 +33,8 @@ class FileDetailAlertView: UIView {
                 return UIImage.assets(.resetName_black)
             case .delete:
                 return UIImage.assets(.delete_black)
+            case .preview:
+                return UIImage.assets(.preview_black)
             }
         }
         
@@ -49,6 +52,8 @@ class FileDetailAlertView: UIView {
                 return "重命名".localizedString
             case .delete:
                 return "删除".localizedString
+            case .preview:
+                return "查看".localizedString
             }
         }
     }
@@ -87,7 +92,7 @@ class FileDetailAlertView: UIView {
     
     //fileInfo
     lazy var iconImgView = ImageView().then{
-        $0.contentMode = .scaleAspectFill
+        $0.contentMode = .scaleAspectFit
         $0.image = .assets(.myFile_tab)
         $0.clipsToBounds = true
     }
@@ -163,26 +168,9 @@ class FileDetailAlertView: UIView {
         if file.type == 0 {
             iconImgView.image = .assets(.folder_icon)
         } else {
-            if filePath == ""{
-                iconImgView.image = ZTCTool.fileImageBy(fileName: file.name)
-
-            }else{
-                    let fileTypeStrs = currentModel.name.components(separatedBy: ".")
-                    switch fileTypeStrs.last?.lowercased() {
-                        case "mp4", "m4v", "avi", "mkv", "mov", "mpg", "mpeg", "vob", "ram", "rm", "rmvb", "asf", "wmv", "webm", "m2ts", "movie" :
-                            self.getThumbnail(url: filePath)
-                        
-                        case "psd", "pdd", "psdt", "psb", "bmp", "rle", "dib", "gif", "dcm", "dc3", "dic", "eps", "iff", "tdi", "jpg", "jpeg", "jpf", "jpx", "jp2", "j2c", "j2k", "jpc", "jps", "pcx", "pdp", "raw", "pxr", "png", "pbm", "pgm", "ppm", "pnm", "pfm", "pam", "sct", "tga", "vda", "icb", "vst", "tif", "tiff", "mpo", "heic" :
-                        
-                        let data = try! Data(contentsOf: URL(string: filePath)!)
-                        iconImgView.image = UIImage(data: data)//UIImage(contentsOfFile: filePath)
-                        
-                        default:
-                        iconImgView.image = ZTCTool.fileImageBy(fileName: currentModel.name)
-                    }
-
-                }
-            }
+            iconImgView.setImage(urlString: AreaManager.shared.currentArea.requestURL.absoluteString + "/wangpan/api/" + currentModel.thumbnail_url, placeHolder: ZTCTool.fileImageBy(fileName: currentModel.name))
+            
+        }
         
         fileNameLabel.text = file.name
         timeLabel.text = TimeTool.timeIntervalChangeToTimeStr(timeInterval: Double(file.mod_time), "yyyy-MM-dd")
@@ -296,8 +284,9 @@ class FileDetailAlertView: UIView {
         //异步获取网络视频
         DispatchQueue.global().async {
             //获取网络视频
-//            let  url =  "http://www.hangge.com/hangge.mp4"
-            let  videoURL =  URL(string: url)!
+            guard let videoURL =  URL(string: url) else{
+                return
+            }
             let  avAsset =  AVURLAsset(url: videoURL)
             
             //生成视频截图

@@ -6,13 +6,13 @@
 //
 
 import UIKit
-
-
-import UIKit
+import IJKMediaFramework
 
 class DownloadedFolderViewController: BaseViewController {
     lazy var documentVC = UIDocumentInteractionController()
-    
+    var transitionUtil = FolderTransitionUtil()
+    var player: IJKFFMoviePlayerController?
+
     private lazy var filePathLabel = UILabel().then {
         $0.backgroundColor = .clear
         $0.font = .font(size: ZTScaleValue(12), type: .regular)
@@ -21,7 +21,7 @@ class DownloadedFolderViewController: BaseViewController {
     }
     
     private lazy var headerView = FolderDetailHeader(currentFileName: currentPaths.last ?? "").then {
-        $0.backgroundColor = .white
+        $0.backgroundColor = .custom(.white_ffffff)
     }
     
     //PathCollectionView
@@ -238,9 +238,9 @@ extension DownloadedFolderViewController: UITableViewDataSource,UITableViewDeleg
         if let url = DownloadedDocumentManager.shared.goCacheUrl {
             let path = self.currentPaths.joined(separator: "/")
             let fileUrl = url.appendingPathComponent("/\(path)/\(currentDatas[indexPath.row].name)")
-            cell.setModel(currentModel: currentDatas[indexPath.row], filePath: fileUrl.absoluteString)
+            cell.setModel(currentModel: currentDatas[indexPath.row], filePath: fileUrl.absoluteString, type: .download)
         }else{
-            cell.setModel(currentModel: currentDatas[indexPath.row])
+            cell.setModel(currentModel: currentDatas[indexPath.row], type: .download)
         }
         cell.selectBtn.isHidden = true
         
@@ -264,7 +264,12 @@ extension DownloadedFolderViewController: UITableViewDataSource,UITableViewDeleg
         if let url = DownloadedDocumentManager.shared.goCacheUrl {
             let path = self.currentPaths.joined(separator: "/")
             let fileUrl = url.appendingPathComponent("/\(path)/\(currentDatas[indexPath.row].name)")
-            myFileDetailView.setCurrentFileModel(file: file,types: [.open], filePath: fileUrl.absoluteString)
+            switch ZTCTool.resourceTypeBy(fileName: file.name) {
+            case .ppt,.pdf,.txt,.excel,.document,.music,.picture,.video:
+                myFileDetailView.setCurrentFileModel(file: file, types: [.preview,.open],filePath: fileUrl.absoluteString)
+            default:
+                myFileDetailView.setCurrentFileModel(file: file, types: [.open],filePath: fileUrl.absoluteString)
+            }
         }else{
             myFileDetailView.setCurrentFileModel(file: file,types: [.open])
         }
@@ -272,6 +277,47 @@ extension DownloadedFolderViewController: UITableViewDataSource,UITableViewDeleg
         myFileDetailView.selectCallback = { [weak self] type in
             guard let self = self else { return }
             switch type {
+            case .preview:
+                if let url = DownloadedDocumentManager.shared.goCacheUrl {
+                    let path = self.currentPaths.joined(separator: "/")
+                    let fileUrl = url.appendingPathComponent("/\(path)/\(file.name)").absoluteURL
+                    switch ZTCTool.resourceTypeBy(fileName: file.name) {
+                    case .video:
+                        let playerVC = MultimediaController(type: .video(title: file.name, url: fileUrl))
+                            playerVC.modalPresentationStyle = .fullScreen
+                            playerVC.transitioningDelegate = self.transitionUtil
+                            self.present(playerVC, animated: true, completion: nil)
+                    
+                    case .music:
+                        let playerVC = MultimediaController(type: .music(title: file.name, url: fileUrl))
+                            playerVC.modalPresentationStyle = .fullScreen
+                            playerVC.transitioningDelegate = self.transitionUtil
+                            self.present(playerVC, animated: true, completion: nil)
+                        
+                    case .picture:
+                        //获取图片集，以及当前第几个
+                        let picSet = self.currentDatas.filter({ZTCTool.resourceTypeBy(fileName: $0.name) == .picture})
+                        let index = picSet.firstIndex(where: {$0.name == file.name}) ?? 0
+                        let picStringSet = picSet.map({url.appendingPathComponent("/\(path)/\($0.name)").absoluteURL.absoluteString})
+                        let titleSet = picSet.map(\.name)
+
+                        let playerVC = MultimediaController(type: .picture(titleSet: titleSet, picSet: picStringSet, index: index, isFromLocation: true))
+                            playerVC.modalPresentationStyle = .fullScreen
+                            playerVC.transitioningDelegate = self.transitionUtil
+                            self.present(playerVC, animated: true, completion: nil)
+                        
+                    case .document,.excel,.txt,.pdf,.ppt:
+                        let playerVC = MultimediaController(type: .document(title: file.name, url: fileUrl))
+                            playerVC.modalPresentationStyle = .fullScreen
+                            playerVC.transitioningDelegate = self.transitionUtil
+                            self.present(playerVC, animated: true, completion: nil)
+                    default:
+                        break
+                    }
+                }
+
+                self.myFileDetailView.removeFromSuperview()
+
             case .open:
                 if let url = DownloadedDocumentManager.shared.goCacheUrl {
                     let path = self.currentPaths.joined(separator: "/")
@@ -307,7 +353,27 @@ extension DownloadedFolderViewController {
         SceneDelegate.shared.window?.addSubview(myFileDetailView)
     }
     
-    
+    private func getThumbnail(url:String) -> UIImage{
+        let options = IJKFFOptions.byDefault()
+        options?.setFormatOptionValue("scope-token:\(AreaManager.shared.currentArea.scope_token)", forKey: "headers")
+        
+        guard let videoURL =  URL(string: url) else{
+            return UIImage()
+        }
+        if self.player != nil {
+            self.player?.shutdown()
+            self.player?.view.removeFromSuperview()
+            self.player?.stop()
+            self.player = nil
+        }
+            self.player = IJKFFMoviePlayerController.init(contentURL:videoURL, with: options)
+            self.player?.scalingMode = IJKMPMovieScalingMode.aspectFit
+            self.player?.shouldAutoplay = false
+            self.player?.prepareToPlay()
+            self.player?.play()
+            self.player?.currentPlaybackTime = TimeInterval(10)
+            return self.player?.thumbnailImageAtCurrentTime() ?? UIImage()
+    }
 }
 
 

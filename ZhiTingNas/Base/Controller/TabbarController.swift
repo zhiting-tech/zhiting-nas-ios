@@ -19,6 +19,19 @@ class TabbarController: UITabBarController {
         setUpChilds()
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+    }
+    
+    override var shouldAutorotate: Bool {
+        return false
+    }
+
+    override var interfaceOrientation: UIInterfaceOrientation {
+        return .portrait
+    }
+
 }
 
 extension TabbarController{

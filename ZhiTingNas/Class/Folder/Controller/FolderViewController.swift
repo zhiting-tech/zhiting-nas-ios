@@ -16,9 +16,9 @@ class FolderViewController: BaseViewController {
     }
     
     private lazy var emptyView = FileEmptyView()
-
+    
     //密码输入框
-    private var tipsTestFieldAlert: TipsTestFieldAlertView?
+    private var tipsTestFieldAlert: TipsTextFieldAlertView?
     
     //PathCollectionView
     private lazy var flowLayout = UICollectionViewFlowLayout().then {
@@ -84,11 +84,14 @@ class FolderViewController: BaseViewController {
     /// 其他文件上传选择器
     private lazy var documentPicker = DocumentPicker(presentationController: self, delegate: self)
     
+    var transitionUtil = FolderTransitionUtil()
+    
+    
     // MARK: - Life Cycle
     override func viewDidLoad() {
         super.viewDidLoad()
         
-//        reload()
+        reload()
         
         // MARK: - updateFileView
         updateFileView.selectCallback = { [weak self] index in
@@ -99,8 +102,6 @@ class FolderViewController: BaseViewController {
                 self.presentTZPicker(allowVideo: false)
             } else if index == 2 {
                 self.documentPicker.displayPicker()
-            } else if index == 3 {
-                FileUploadManager.shared.totalCache()
             }
             
         }
@@ -118,19 +119,49 @@ class FolderViewController: BaseViewController {
         funtionTabbarView.downloadBtn.clickCallBack = { [weak self] _ in
             guard let self = self else { return }
             print("点击下载")
-            self.seletedFiles.forEach {
-                if $0.type == 1 { /// 下载文件
-                    GoFileNewManager.shared.download(path: $0.path)
-                } else { /// 下载目录
-                    GoFileNewManager.shared.downloadDir(requestUrl: "/plugin/wangpan", filePath: $0.path)
+            if NetworkStateManager.shared.networkState == .reachable(type: .cellular) && !UserManager.shared.allowCellular {
+                NormalAlertView.show(title: "提示", message: "当前正在使用移动流量，使用会消耗较多流量，是否继续?", leftTap: "取消", rightTap: "继续", clickCallback: { [weak self] tap in
+                    guard let self = self else { return }
+                    switch tap {
+                    case 0:
+                        print("取消")
+                    case 1:
+                        print("继续")
+                        self.seletedFiles.forEach {
+                            if $0.type == 1 { /// 下载文件
+                                GoFileManager.shared.download(path: $0.path, thumbnailUrl: $0.thumbnail_url)
+                            } else { /// 下载目录
+                                GoFileManager.shared.downloadDir(requestUrl: "/wangpan/api", filePath: $0.path)
+                            }
+                            
+                        }
+                        
+                        SceneDelegate.shared.window?.makeToast("已添加至传输列表".localizedString)
+                        
+                        self.hideFunctionTabbarView()
+                        self.tableView.reloadData()
+                        
+                    default:
+                        break
+                    }
+                }, removeWithSure: false)
+                
+            } else {
+                self.seletedFiles.forEach {
+                    if $0.type == 1 { /// 下载文件
+                        GoFileManager.shared.download(path: $0.path, thumbnailUrl: $0.thumbnail_url)
+                    } else { /// 下载目录
+                        GoFileManager.shared.downloadDir(requestUrl: "/wangpan/api", filePath: $0.path)
+                    }
+                    
                 }
                 
+                SceneDelegate.shared.window?.makeToast("已添加至传输列表".localizedString)
+                
+                self.hideFunctionTabbarView()
+                self.tableView.reloadData()
             }
-
-            SceneDelegate.shared.window?.makeToast("已添加至传输列表".localizedString)
             
-            self.hideFunctionTabbarView()
-            self.tableView.reloadData()
         }
         // MARK: - 文件移动
         funtionTabbarView.moveBtn.clickCallBack = { [weak self] _ in
@@ -150,7 +181,14 @@ class FolderViewController: BaseViewController {
         funtionTabbarView.resetNameBtn.clickCallBack = { [weak self] _ in
             guard let self = self else { return }
             print("点击重命名")
-            guard let file = self.seletedFiles.first else { return }
+            guard
+                let file = self.seletedFiles.first,
+                let row = self.currentDatas.firstIndex(where: { $0.id == file.id })
+            else {
+                return
+            }
+            
+            let indexPath = IndexPath(row: row, section: 0)
             self.showResetNameView(name: file.name, isFile: file.type == 1)
             self.setNameView?.setNameCallback = { name in
                 if name.isEmpty {
@@ -172,7 +210,7 @@ class FolderViewController: BaseViewController {
                                 let newPath = file.path.replacingOccurrences(of: file.name, with: name)
                                 file.path = newPath
                                 file.name = name
-                                self.tableView.reloadData()
+                                self.tableView.reloadRows(at: [indexPath], with: .automatic)
                                 self.setNameView?.removeFromSuperview()
                                 self.hideFunctionTabbarView()
                                 LoadingView.hide()
@@ -188,13 +226,13 @@ class FolderViewController: BaseViewController {
                 }
                 
                 LoadingView.show()
-
+                
                 NetworkManager.shared.renameFile(path: file.path, name: name) { [weak self] response in
                     guard let self = self else { return }
                     let newPath = file.path.replacingOccurrences(of: file.name, with: name)
                     file.path = newPath
                     file.name = name
-                    self.tableView.reloadData()
+                    self.tableView.reloadRows(at: [indexPath], with: .automatic)
                     self.setNameView?.removeFromSuperview()
                     self.hideFunctionTabbarView()
                     LoadingView.hide()
@@ -212,6 +250,13 @@ class FolderViewController: BaseViewController {
             guard let self = self else { return }
             print("点击删除")
             let paths = self.seletedFiles.map(\.path)
+            var indexPaths = [IndexPath]()
+            for (idx, data) in self.currentDatas.enumerated() {
+                if self.seletedFiles.contains(where: {$0.id == data.id}) {
+                    indexPaths.append(.init(row: idx, section: 0))
+                }
+            }
+            
             let tipsAlert = TipsAlertView(title: "", detail: String(format: "共%d个文件/文件夹，确定删除吗？", paths.count), warning: "文件删除后不可恢复", sureBtnTitle: "确定")
             tipsAlert.sureCallback = { [weak self] in
                 guard let self = self else { return }
@@ -220,11 +265,13 @@ class FolderViewController: BaseViewController {
                     guard let self = self else { return }
                     self.myFileDetailView.removeFromSuperview()
                     tipsAlert.removeFromSuperview()
+                    self.tableView.beginUpdates()
+                    self.currentDatas.removeAll(where: { self.seletedFiles.map(\.id).contains($0.id) })
+                    self.tableView.deleteRows(at: indexPaths, with: .automatic)
+                    self.tableView.endUpdates()
                     self.hideFunctionTabbarView()
                     SceneDelegate.shared.window?.makeToast("删除成功".localizedString)
-                    self.seletedFiles.removeAll()
-                    self.currentDatas.removeAll()
-                    self.reload()
+                    
                 } failureCallback: { code, err in
                     tipsAlert.sureBtn.buttonState = .normal
                     SceneDelegate.shared.window?.makeToast(err)
@@ -241,21 +288,17 @@ class FolderViewController: BaseViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         self.navigationController?.navigationBar.isHidden = true
-        if self.currentDatas.count == 0 {
-            LoadingView.show()
-        }
         pathCollectionView.scrollToItem(at: IndexPath(item: currentPaths.count - 1, section: 0), at: .right, animated: true)
         
-        let transferingItemsCount = GoFileNewManager.shared.getTotalonGoingCount()
+        let transferingItemsCount = GoFileManager.shared.getTotalonGoingCount()
         self.headerView.transferListBtn.setUpNumber(value: transferingItemsCount)
         
-        self.reload()
     }
     
     override func setupViews() {
         view.addSubview(headerView)
         if isWriteRoot {
-            headerView.setBtns(btns: [.transfer,.upload,.newFolder])
+            headerView.setBtns(btns: [.upload,.newFolder,.transfer])
         }else{
             headerView.setBtns(btns: [.transfer])
         }
@@ -281,7 +324,7 @@ class FolderViewController: BaseViewController {
                     
                     let pwdJsonStr:String = UserDefaults.standard.value(forKey: self.rootPasswordKey) as? String ?? ""
                     let pwdModel = PasswordModel.deserialize(from: pwdJsonStr)
-
+                    
                     NetworkManager.shared.createDirectory(path: self.currentPath, name: name, pwd: pwdModel?.password ?? "") { [weak self] resposne in
                         LoadingView.hide()
                         guard let self = self else { return }
@@ -338,24 +381,24 @@ class FolderViewController: BaseViewController {
     }
     
     override func setupSubscriptions() {
-        GoFileNewManager.shared.taskCountChangePublisher
+        GoFileManager.shared.taskCountChangePublisher
             .sink { [weak self] _ in
                 guard let self = self else { return }
-                let transferingItemsCount = GoFileNewManager.shared.getTotalonGoingCount()
+                let transferingItemsCount = GoFileManager.shared.getTotalonGoingCount()
                 DispatchQueue.main.async {
                     self.headerView.transferListBtn.setUpNumber(value: transferingItemsCount)
                 }
             }
             .store(in: &cancellables)
-
-    }
         
+    }
+    
     @objc private func reload(){
         hideFunctionTabbarView()
         
-        let transferingItemsCount = GoFileNewManager.shared.getTotalonGoingCount()
+        let transferingItemsCount = GoFileManager.shared.getTotalonGoingCount()
         self.headerView.transferListBtn.setUpNumber(value: transferingItemsCount)
-
+        
         loadDatas(isReload: true)
     }
     
@@ -368,12 +411,14 @@ class FolderViewController: BaseViewController {
     }
     
     private func loadDatas(isReload:Bool){
-        LoadingView.show()
         if isReload {//下拉刷新
+            showLoading()
             currentDatas.removeAll()
             tableView.reloadData()
             isGetAllData = false
+            tableView.mj_header?.endRefreshing()
             tableView.mj_footer?.resetNoMoreData()
+            tableView.mj_footer?.endRefreshing()
         }
         
         //存储的密码对象
@@ -381,11 +426,11 @@ class FolderViewController: BaseViewController {
         let pwdModel = PasswordModel.deserialize(from: pwdJsonStr)
         
         let page = (currentDatas.count / 30) + 1
-
+        
         NetworkManager.shared.fileList(path: currentPath, page: page, page_size: 30, pwd: pwdModel?.password ?? "") { [weak self] response in
             guard let self = self else { return }
             
-            LoadingView.hide()
+            self.hideLoading()
             
             let datas = response.list.filter({$0.read != 0})
             
@@ -397,26 +442,28 @@ class FolderViewController: BaseViewController {
                 if datas.count == 0 {
                     //空数据展示页面
                     self.tableView.addSubview(self.emptyView)
-                        self.emptyView.snp.makeConstraints {
-                            $0.center.equalToSuperview()
-                            $0.width.equalTo(Screen.screenWidth)
-                            $0.height.equalTo(ZTScaleValue(110))
-                        }
+                    self.emptyView.snp.makeConstraints {
+                        $0.center.equalToSuperview()
+                        $0.width.equalTo(Screen.screenWidth)
+                        $0.height.equalTo(ZTScaleValue(110))
+                    }
                     self.tableView.mj_footer?.isHidden = true
                     self.tableView.reloadData()
                     self.encrytImgView.isHidden = true
+                }else{
+                    self.emptyView.removeFromSuperview()
+                    self.currentDatas = datas
+                    if response.list.count < 30 {
+                        self.tableView.mj_footer?.isHidden = true
                     }else{
-                        self.emptyView.removeFromSuperview()
-                        self.currentDatas = datas
-                        if response.list.count < 30 {
-                            self.tableView.mj_footer?.isHidden = true
-                        }else{
-                            self.tableView.mj_footer?.isHidden = false
-                        }
-                        self.tableView.reloadData()
-                        self.encrytImgView.isHidden = (self.rootPasswordKey == "")
+                        self.tableView.mj_footer?.isHidden = false
                     }
+                    self.tableView.reloadData()
+                    self.encrytImgView.isHidden = (self.rootPasswordKey == "")
+                }
             } else {//上拉加载更多数据
+                self.tableView.mj_header?.endRefreshing()
+                self.tableView.mj_footer?.endRefreshing()
                 if !response.pager.has_more {//已无数据
                     self.tableView.mj_footer?.endRefreshingWithNoMoreData()
                     self.isGetAllData = true
@@ -428,17 +475,17 @@ class FolderViewController: BaseViewController {
             }
         } failureCallback: {[weak self] code, err in
             guard let self = self else { return }
-            LoadingView.hide()
+            self.hideLoading()
             if self.currentDatas.count == 0 {
                 self.tableView.addSubview(self.emptyView)
-                    self.emptyView.snp.makeConstraints {
-                        $0.center.equalToSuperview()
-                        $0.width.equalTo(Screen.screenWidth)
-                        $0.height.equalTo(ZTScaleValue(110))
-                    }
-                }else{
-                    self.emptyView.removeFromSuperview()
+                self.emptyView.snp.makeConstraints {
+                    $0.center.equalToSuperview()
+                    $0.width.equalTo(Screen.screenWidth)
+                    $0.height.equalTo(ZTScaleValue(110))
                 }
+            }else{
+                self.emptyView.removeFromSuperview()
+            }
             self.tableView.mj_header?.endRefreshing()
             self.tableView.mj_footer?.endRefreshing()
             self.showToast("\(err)")
@@ -457,12 +504,35 @@ class FolderViewController: BaseViewController {
     }
     
     private func showUpdateFileView(){
-        SceneDelegate.shared.window?.addSubview(updateFileView)
-        updateFileView.snp.makeConstraints {
-            $0.top.equalTo(headerView.snp.bottom)
-            $0.left.right.bottom.equalToSuperview()
+        if NetworkStateManager.shared.networkState == .reachable(type: .cellular) && !UserManager.shared.allowCellular {
+            NormalAlertView.show(title: "提示", message: "当前正在使用移动流量，上传会消耗较多流量，是否继续?", leftTap: "取消", rightTap: "继续", clickCallback: { [weak self] tap in
+                guard let self = self else { return }
+                switch tap {
+                case 0:
+                    print("取消")
+                case 1:
+                    print("继续")
+                    SceneDelegate.shared.window?.addSubview(self.updateFileView)
+                    self.updateFileView.snp.makeConstraints {
+                        $0.top.equalTo(self.headerView.snp.bottom)
+                        $0.left.right.bottom.equalToSuperview()
+                    }
+                    SceneDelegate.shared.window?.bringSubviewToFront(self.updateFileView)
+                    
+                default:
+                    break
+                }
+            }, removeWithSure: false)
+            
+        } else {
+            SceneDelegate.shared.window?.addSubview(updateFileView)
+            updateFileView.snp.makeConstraints {
+                $0.top.equalTo(headerView.snp.bottom)
+                $0.left.right.bottom.equalToSuperview()
+            }
+            SceneDelegate.shared.window?.bringSubviewToFront(updateFileView)
         }
-        SceneDelegate.shared.window?.bringSubviewToFront(updateFileView)
+        
     }
 }
 
@@ -565,7 +635,7 @@ extension FolderViewController: UITableViewDataSource,UITableViewDelegate {
                     self.funtionTabbarView.setResetNameBtnIsEnabled(isEnabled: self.seletedFiles.count == 1)
                     self.funtionTabbarView.setDownloadBtnIsEnabled(isEnabled: true)
                 }
-
+                
                 if self.seletedFiles.filter({$0.deleted == 0}).count > 0 {//没有删权限
                     self.funtionTabbarView.setMoveBtnIsEnabled(isEnabled: false)
                     self.funtionTabbarView.setDeleteBtnIsEnabled(isEnabled: false)
@@ -573,7 +643,7 @@ extension FolderViewController: UITableViewDataSource,UITableViewDelegate {
                     self.funtionTabbarView.setMoveBtnIsEnabled(isEnabled: true)
                     self.funtionTabbarView.setDeleteBtnIsEnabled(isEnabled: true)
                 }
-
+                
             }else{
                 self.hideFunctionTabbarView()
             }
@@ -583,7 +653,7 @@ extension FolderViewController: UITableViewDataSource,UITableViewDelegate {
     
     private func pushToFolder(isNeedPwd:Bool,file:FileModel){
         if isNeedPwd {
-            self.tipsTestFieldAlert = TipsTestFieldAlertView.show(message: "请输入密码", sureCallback: {[weak self] pwd in
+            self.tipsTestFieldAlert = TipsTextFieldAlertView.show(message: "请输入密码", sureCallback: {[weak self] pwd in
                 guard let self = self else {return}
                 print("密码是\(pwd)")
                 NetworkManager.shared.decryptFolder(name: file.path, password: pwd) {[weak self] response in
@@ -605,7 +675,7 @@ extension FolderViewController: UITableViewDataSource,UITableViewDelegate {
                     vc.encrytRootFile = self.encrytRootFile
                     vc.rootPasswordKey = self.rootPasswordKey
                     vc.isWriteRoot = (file.write == 1)
-
+                    
                     let paths = self.currentPaths + [file.name]
                     vc.currentPaths = paths
                     self.navigationController?.pushViewController(vc, animated: true)
@@ -627,7 +697,7 @@ extension FolderViewController: UITableViewDataSource,UITableViewDelegate {
             vc.isWriteRoot = (file.write == 1)
             self.navigationController?.pushViewController(vc, animated: true)        }
     }
-
+    
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         //点击cell
@@ -663,23 +733,175 @@ extension FolderViewController: UITableViewDataSource,UITableViewDelegate {
             }
             return
         }
-        myFileDetailView.setCurrentFileModel(file: file, types: [.download, .move, .copy, .rename, .delete])
+        switch ZTCTool.resourceTypeBy(fileName: file.name) {
+        case .ppt,.pdf,.txt,.excel,.document,.music,.picture,.video:
+            myFileDetailView.setCurrentFileModel(file: file, types: [.download, .move, .copy, .preview, .rename, .delete])
+            
+        default:
+            myFileDetailView.setCurrentFileModel(file: file, types: [.download, .move, .copy, .rename, .delete])
+        }
         myFileDetailView.selectCallback = {[weak self] type in
             guard let self = self else {
                 return
             }
             
             switch type {
+            case .preview:
+                
+                guard let fileUrl = URL(string: "\(AreaManager.shared.currentArea.requestURL)/wangpan/api/download\(file.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? file.path)") else {
+                    return
+                }
+                //检查是否大于10m
+                if file.size > 10*1024*1024 {
+                    NormalAlertView.show(title: "温馨提示", message: "该文件过大，建议下载本地后进行查看", leftTap: "查看", rightTap: "下载", clickCallback: { tap in
+                        switch tap {
+                        case 0://查看
+                            //判断类型
+                            switch ZTCTool.resourceTypeBy(fileName: file.name) {
+                            case .video:
+                                let playerVC = MultimediaController(type: .video(title: file.name, url: fileUrl))
+                                playerVC.modalPresentationStyle = .fullScreen
+                                playerVC.transitioningDelegate = self.transitionUtil
+                                self.present(playerVC, animated: true, completion: nil)
+                                
+                            case .music:
+                                let playerVC = MultimediaController(type: .music(title: file.name, url: fileUrl))
+                                playerVC.modalPresentationStyle = .fullScreen
+                                playerVC.transitioningDelegate = self.transitionUtil
+                                self.present(playerVC, animated: true, completion: nil)
+                                
+                            case .picture:
+                                //获取图片集，以及当前第几个
+                                let picSet = self.currentDatas.filter({ZTCTool.resourceTypeBy(fileName: $0.name) == .picture})
+                                let index = picSet.firstIndex(where: {$0.name == file.name}) ?? 0
+                                let picStringSet = picSet.map({ fileModel -> String in
+                                    guard let url = URL(string: "\(AreaManager.shared.currentArea.requestURL)/wangpan/api/download\(fileModel.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? fileModel.path)") else { return "" }
+                                    
+                                    return url.absoluteString
+                                })
+                                let titleSet = picSet.map(\.name)
+                                
+                                let playerVC = MultimediaController(type: .picture(titleSet: titleSet, picSet: picStringSet, index: index, isFromLocation: true))
+                                playerVC.modalPresentationStyle = .fullScreen
+                                playerVC.transitioningDelegate = self.transitionUtil
+                                self.present(playerVC, animated: true, completion: nil)
+                                
+                            case .document,.excel,.txt,.pdf,.ppt:
+                                let playerVC = MultimediaController(type: .document(title: file.name, url: fileUrl))
+                                playerVC.modalPresentationStyle = .fullScreen
+                                playerVC.transitioningDelegate = self.transitionUtil
+                                self.present(playerVC, animated: true, completion: nil)
+                            default:
+                                break
+                            }
+                            self.myFileDetailView.removeFromSuperview()
+                        case 1://下载
+                            if NetworkStateManager.shared.networkState == .reachable(type: .cellular) && !UserManager.shared.allowCellular {
+                                NormalAlertView.show(title: "提示", message: "当前正在使用移动流量，使用会消耗较多流量，是否继续?", leftTap: "取消", rightTap: "继续", clickCallback: { [weak self] tap in
+                                    guard let self = self else { return }
+                                    switch tap {
+                                    case 0:
+                                        print("取消")
+                                    case 1:
+                                        print("继续")
+                                        GoFileManager.shared.download(path: file.path, thumbnailUrl: file.thumbnail_url)
+                                        SceneDelegate.shared.window?.makeToast("已添加至传输列表".localizedString)
+                                        self.myFileDetailView.removeFromSuperview()
+                                        self.hideFunctionTabbarView()
+                                        self.tableView.reloadData()
+                                        
+                                    default:
+                                        break
+                                    }
+                                }, removeWithSure: false)
+                                
+                            } else {
+                                GoFileManager.shared.download(path: file.path, thumbnailUrl: file.thumbnail_url)
+                                SceneDelegate.shared.window?.makeToast("已添加至传输列表".localizedString)
+                                self.myFileDetailView.removeFromSuperview()
+                                self.hideFunctionTabbarView()
+                                self.tableView.reloadData()
+                            }
+                            
+                        default:
+                            break
+                        }
+                    }, removeWithSure: true)
+                }else{
+                    //判断类型
+                    switch ZTCTool.resourceTypeBy(fileName: file.name) {
+                    case .video:
+                        let playerVC = MultimediaController(type: .video(title: file.name, url: fileUrl))
+                        playerVC.modalPresentationStyle = .fullScreen
+                        playerVC.transitioningDelegate = self.transitionUtil
+                        self.present(playerVC, animated: true, completion: nil)
+                        
+                    case .music:
+                        let playerVC = MultimediaController(type: .music(title: file.name, url: fileUrl))
+                        playerVC.modalPresentationStyle = .fullScreen
+                        playerVC.transitioningDelegate = self.transitionUtil
+                        self.present(playerVC, animated: true, completion: nil)
+                        
+                    case .picture:
+                        //获取图片集，以及当前第几个
+                        let picSet = self.currentDatas.filter({ZTCTool.resourceTypeBy(fileName: $0.name) == .picture})
+                        let index = picSet.firstIndex(where: {$0.name == file.name}) ?? 0
+                        let picStringSet = picSet.map({ fileModel -> String in
+                            guard let url = URL(string: "\(AreaManager.shared.currentArea.requestURL)/wangpan/api/download\(fileModel.path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? fileModel.path)") else { return "" }
+                            
+                            return url.absoluteString
+                        })
+                        let titleSet = picSet.map(\.name)
+                        
+                        let playerVC = MultimediaController(type: .picture(titleSet: titleSet, picSet: picStringSet, index: index, isFromLocation: true))
+                        playerVC.modalPresentationStyle = .fullScreen
+                        playerVC.transitioningDelegate = self.transitionUtil
+                        self.present(playerVC, animated: true, completion: nil)
+                        
+                    case .document,.excel,.txt,.pdf,.ppt:
+                        let playerVC = MultimediaController(type: .document(title: file.name, url: fileUrl))
+                        playerVC.modalPresentationStyle = .fullScreen
+                        playerVC.transitioningDelegate = self.transitionUtil
+                        self.present(playerVC, animated: true, completion: nil)
+                        
+                    default:
+                        break
+                    }
+                }
+                
             case .open:
                 print("点击其他应用打开")
-                self.myFileDetailView.removeFromSuperview()
+                
             case .download:
                 print("点击下载")
-                GoFileNewManager.shared.download(path: file.path)
-                SceneDelegate.shared.window?.makeToast("已添加至传输列表".localizedString)
-                self.myFileDetailView.removeFromSuperview()
-                self.hideFunctionTabbarView()
-                self.tableView.reloadData()
+                if NetworkStateManager.shared.networkState == .reachable(type: .cellular) && !UserManager.shared.allowCellular {
+                    NormalAlertView.show(title: "提示", message: "当前正在使用移动流量，使用会消耗较多流量，是否继续?", leftTap: "取消", rightTap: "继续", clickCallback: { [weak self] tap in
+                        guard let self = self else { return }
+                        switch tap {
+                        case 0:
+                            print("取消")
+                        case 1:
+                            print("继续")
+                            GoFileManager.shared.download(path: file.path, thumbnailUrl: file.thumbnail_url)
+                            SceneDelegate.shared.window?.makeToast("已添加至传输列表".localizedString)
+                            self.myFileDetailView.removeFromSuperview()
+                            self.hideFunctionTabbarView()
+                            self.tableView.reloadData()
+                            
+                        default:
+                            break
+                        }
+                    }, removeWithSure: false)
+                    
+                } else {
+                    GoFileManager.shared.download(path: file.path, thumbnailUrl: file.thumbnail_url)
+                    SceneDelegate.shared.window?.makeToast("已添加至传输列表".localizedString)
+                    self.myFileDetailView.removeFromSuperview()
+                    self.hideFunctionTabbarView()
+                    self.tableView.reloadData()
+                }
+                
+                
             case .move:
                 print("点击移动到")
                 self.seletedFiles.append(file)
@@ -710,7 +932,7 @@ extension FolderViewController: UITableViewDataSource,UITableViewDelegate {
                                 LoadingView.show()
                                 let pwdJsonStr:String = UserDefaults.standard.value(forKey: self.rootPasswordKey) as? String ?? ""
                                 let pwdModel = PasswordModel.deserialize(from: pwdJsonStr)
-
+                                
                                 NetworkManager.shared.renameFile(path: file.path, name: pwdModel?.password ?? "") { [weak self] response in
                                     guard let self = self else { return }
                                     let newPath = file.path.replacingOccurrences(of: file.name, with: name)
@@ -756,7 +978,7 @@ extension FolderViewController: UITableViewDataSource,UITableViewDelegate {
                 let tipsAlert = TipsAlertView(title: "", detail: "共1个文件/文件夹，确定删除吗？", warning: "文件删除后不可恢复", sureBtnTitle: "确定")
                 tipsAlert.sureCallback = { [weak self] in
                     guard let self = self else { return }
-
+                    
                     tipsAlert.sureBtn.buttonState = .waiting
                     NetworkManager.shared.deleteFile(paths: [file.path]) { [weak self] response in
                         guard let self = self else { return }
@@ -769,7 +991,7 @@ extension FolderViewController: UITableViewDataSource,UITableViewDelegate {
                         self.tableView.deleteRows(at: [indexPath], with: .automatic)
                         self.tableView.endUpdates()
                         self.hideFunctionTabbarView()
-
+                        
                     } failureCallback: { code, err in
                         tipsAlert.sureBtn.buttonState = .normal
                         SceneDelegate.shared.window?.makeToast(err)
@@ -778,7 +1000,7 @@ extension FolderViewController: UITableViewDataSource,UITableViewDelegate {
                 }
                 SceneDelegate.shared.window?.addSubview(tipsAlert)
                 
-
+                
             }
         }
         showFileDetailView()
@@ -795,11 +1017,11 @@ extension FolderViewController {
             $0.bottom.left.right.equalToSuperview()
             $0.height.equalTo(Screen.tabbarHeight)
         }
-            tableView.snp.remakeConstraints {
-                $0.top.equalTo(pathCollectionView.snp.bottom).offset(ZTScaleValue(5))
-                $0.left.right.equalToSuperview()
-                $0.bottom.equalTo(funtionTabbarView.snp.top)
-            }
+        tableView.snp.remakeConstraints {
+            $0.top.equalTo(pathCollectionView.snp.bottom).offset(ZTScaleValue(5))
+            $0.left.right.equalToSuperview()
+            $0.bottom.equalTo(funtionTabbarView.snp.top)
+        }
     }
     
     private func hideFunctionTabbarView() {
@@ -851,10 +1073,24 @@ extension FolderViewController {
                 vc.currentPath = encrytRootFile.path
                 vc.currentPaths = [encrytRootFile.name]
                 vc.seletedFiles = self.seletedFiles
+                vc.refreshCallback = { [weak self] ids in
+                    guard let self = self else { return }
+                    let indexPaths = ids.compactMap { id -> IndexPath? in
+                        if let row = self.currentDatas.firstIndex(where: { $0.id == id }) {
+                            return IndexPath(row: row, section: 0)
+                        }
+                        return nil
+                    }
+                    self.tableView.beginUpdates()
+                    self.currentDatas.removeAll(where: { ids.contains($0.id) })
+                    self.tableView.deleteRows(at: indexPaths, with: .automatic)
+                    self.tableView.endUpdates()
+                    self.hideFunctionTabbarView()
+                }
                 let nav = UINavigationController(rootViewController: vc)
                 nav.modalPresentationStyle = .fullScreen
                 self.present(nav, animated: true, completion: nil)
-
+                
             }else{//非加密文件
                 let vc = ChangeFolderPlaceController()
                 vc.type = type
@@ -862,23 +1098,51 @@ extension FolderViewController {
                 vc.is_encryt = false
                 vc.currentPaths = ["根目录"]
                 vc.seletedFiles = self.seletedFiles
+                vc.refreshCallback = { [weak self] ids in
+                    guard let self = self else { return }
+                    let indexPaths = ids.compactMap { id -> IndexPath? in
+                        if let row = self.currentDatas.firstIndex(where: { $0.id == id }) {
+                            return IndexPath(row: row, section: 0)
+                        }
+                        return nil
+                    }
+                    self.tableView.beginUpdates()
+                    self.currentDatas.removeAll(where: { ids.contains($0.id) })
+                    self.tableView.deleteRows(at: indexPaths, with: .automatic)
+                    self.tableView.endUpdates()
+                    self.hideFunctionTabbarView()
+                }
                 let nav = UINavigationController(rootViewController: vc)
                 nav.modalPresentationStyle = .fullScreen
                 self.present(nav, animated: true, completion: nil)
-              }
-            }else{
+            }
+        }else{
             //共享文件内移动文件仅对子级文件可操作
             let vc = ChangeFolderPlaceController()
             vc.type = type
-                if type == .copy {
-                    vc.isRootPath = true
-                    vc.currentPaths = ["根目录"]
-                }else{
-                    vc.isRootPath = shareBaseFile.from_user.isEmpty
-                    vc.currentPaths = shareBaseFile.from_user.isEmpty ? ["根目录"] : [shareBaseFile.name]
-                }
+            if type == .copy {
+                vc.isRootPath = true
+                vc.currentPaths = ["根目录"]
+            }else{
+                vc.isRootPath = shareBaseFile.from_user.isEmpty
+                vc.currentPaths = shareBaseFile.from_user.isEmpty ? ["根目录"] : [shareBaseFile.name]
+            }
             vc.currentPath = shareBaseFile.path
             vc.seletedFiles = self.seletedFiles
+            vc.refreshCallback = { [weak self] ids in
+                guard let self = self else { return }
+                let indexPaths = ids.compactMap { id -> IndexPath? in
+                    if let row = self.currentDatas.firstIndex(where: { $0.id == id }) {
+                        return IndexPath(row: row, section: 0)
+                    }
+                    return nil
+                }
+                self.tableView.beginUpdates()
+                self.currentDatas.removeAll(where: { ids.contains($0.id) })
+                self.tableView.deleteRows(at: indexPaths, with: .automatic)
+                self.tableView.endUpdates()
+                self.hideFunctionTabbarView()
+            }
             let nav = UINavigationController(rootViewController: vc)
             nav.modalPresentationStyle = .fullScreen
             self.present(nav, animated: true, completion: nil)
@@ -920,11 +1184,11 @@ extension FolderViewController: TZImagePickerControllerDelegate {
                 guard let phAsset = asset as? PHAsset else { return }
                 TZImageManager.default().requestVideoURL(with: phAsset) { [weak self] url in
                     guard let self = self, let url = url else { return }
-                    GoFileNewManager.shared.upload(urlPath: "/plugin/wangpan/resources/\(self.currentPath)/", filename: "\(UUID().uuidString).\(url.pathExtension)", tmpPath: url.absoluteString)
+                    GoFileManager.shared.upload(urlPath: "/wangpan/api/resources/\(self.currentPath)/", filename: "\(UUID().uuidString).\(url.pathExtension)", tmpPath: url.absoluteString)
                 } failure: { _ in
                     print("获取视频地址失败")
                 }
-
+                
             }
         } else {
             assets.forEach { asset in
@@ -932,32 +1196,32 @@ extension FolderViewController: TZImagePickerControllerDelegate {
                 phAsset.requestContentEditingInput(with: PHContentEditingInputRequestOptions()) { [weak self] editingInput, info in
                     guard let self = self else { return }
                     if let input = editingInput, let path = input.fullSizeImageURL {
-                        GoFileNewManager.shared.upload(urlPath: "/plugin/wangpan/resources/\(self.currentPath)/", filename: "\(UUID().uuidString).\(path.pathExtension)", tmpPath: path.absoluteString)
+                        GoFileManager.shared.upload(urlPath: "/wangpan/api/resources/\(self.currentPath)/", filename: "\(UUID().uuidString).\(path.pathExtension)", tmpPath: path.absoluteString)
                     } else {
                         let options = PHImageRequestOptions()
                         options.deliveryMode = .highQualityFormat
                         options.resizeMode = .exact
                         options.isSynchronous = true
-
+                        
                         let imageSize = CGSize(width: phAsset.pixelWidth,
                                                height: phAsset.pixelHeight)
                         /* For faster performance, and maybe degraded image */
                         PHImageManager.default().requestImage(for: phAsset,
-                                                     targetSize: imageSize,
-                                                     contentMode: .aspectFill,
-                                                     options: options,
-                                                     resultHandler: { (image, info) -> Void in
+                                                                 targetSize: imageSize,
+                                                                 contentMode: .aspectFill,
+                                                                 options: options,
+                                                                 resultHandler: { (image, info) -> Void in
                             if let data = image?.pngData() {
                                 let url = FileManager.default.temporaryDirectory
                                 let fileName = "\(UUID().uuidString).png"
                                 let fileUrl = url.appendingPathComponent(fileName)
                                 try? data.write(to: fileUrl)
-                                GoFileNewManager.shared.upload(urlPath: "/plugin/wangpan/resources/\(self.currentPath)/", filename: fileName, tmpPath: fileUrl.absoluteString)
+                                GoFileManager.shared.upload(urlPath: "/wangpan/api/resources/\(self.currentPath)/", filename: fileName, tmpPath: fileUrl.absoluteString)
                             }
                         })
                     }
-
-
+                    
+                    
                 }
             }
         }
@@ -973,11 +1237,9 @@ extension FolderViewController: DocumentDelegate {
     /// 选中的其他文件
     func didPickDocument(document: Document?) {
         if let pickedDoc = document {
-            
-                let name = pickedDoc.fileURL.lastPathComponent
-                // 选择的上传文件
-            GoFileNewManager.shared.upload(urlPath: "/plugin/wangpan/resources/\(currentPath)/", filename: name, tmpPath: pickedDoc.fileURL.absoluteString)
-
+            let name = pickedDoc.fileURL.lastPathComponent
+            // 选择的上传文件
+            GoFileManager.shared.upload(urlPath: "/wangpan/api/resources/\(currentPath)/", filename: name, tmpPath: pickedDoc.fileURL.absoluteString.removingPercentEncoding ?? pickedDoc.fileURL.absoluteString)
             SceneDelegate.shared.window?.makeToast("已添加至传输列表".localizedString)
             
             

@@ -7,6 +7,7 @@
 
 import Moya
 import HandyJSON
+import Alamofire
 
 /// if print the debug info
 fileprivate let printDebugInfo = true
@@ -103,13 +104,27 @@ enum ApiService {
     /// 删除异步任务
     case deleteAsyncTask(area: Area, task_id: String)
     
-    //获取数据通道
+    /// 获取数据通道
     case temporaryIP(area: Area, scheme: String = "http")
+    
+    /// 账号密码登录
+    case login(phone: String, pwd: String)
+    /// 获取家庭列表信息
+    case getAreasToken(user_id: Int, type: String)
 
 }
 
+var cloudUrl: String {
+    #if DEBUG
+    "https://scgz.zhitingtech.com"
+    #else
+    "https://gz.sc.zhitingtech.com"
+    #endif
+}
 
 extension ApiService: TargetType {
+    
+
     var baseURL: URL {
         
         switch self {
@@ -147,11 +162,15 @@ extension ApiService: TargetType {
             
             return URL(string: "\(area.requestURL)")!
 
-        case .temporaryIP:
-            return URL(string:"https://scgz.zhitingtech.com/api")!
+        case .temporaryIP,.getAreasToken:
+            return URL(string:"\(cloudUrl)")!
 
         case .example:
             return URL(string:"http://192.168.0.1")!
+            
+        case .login:
+            return URL(string:"\(cloudUrl)")!
+            
         }
         
         
@@ -163,100 +182,107 @@ extension ApiService: TargetType {
             return ""
             
         case .deleteFile:
-            return "/plugin/wangpan/resources"
+            return "/wangpan/api/resources"
             
         case .renameFile(_, let path, _):
-            return "/plugin/wangpan/resources/\(path)"
+            return "/wangpan/api/resources/\(path)"
             
         case .fileChunks(_, let hash):
-            return "/plugin/wangpan/chunks/\(hash)"
+            return "/wangpan/api/chunks/\(hash)"
             
         case .fileList(_, let path, _, _, _, _):
-            return "/plugin/wangpan/resources/\(path)"
+            return "/wangpan/api/resources/\(path)"
             
         case .userList:
-            return "/users"
+            return "/api/users"
             
         case .userDetail(_, let id):
-            return "/users/\(id)"
+            return "/api/users/\(id)"
             
         case .shareFileList:
-            return "/plugin/wangpan/shares"
+            return "/wangpan/api/shares"
             
         case .createDirectory(_, let path, let name, _):
-            return "/plugin/wangpan/resources/\(path)/\(name)/"
+            return "/wangpan/api/resources/\(path)/\(name)/"
             
         case .shareFiles:
-            return "/plugin/wangpan/shares"
+            return "/wangpan/api/shares"
             
         case .moveFiles:
-            return "/plugin/wangpan/resources"
+            return "/wangpan/api/resources"
             
         case .folderList:
-            return "/plugin/wangpan/folders"
+            return "/wangpan/api/folders"
             
         case .folderDetail(_, let id):
-            return "/plugin/wangpan/folders/\(id)"
+            return "/wangpan/api/folders/\(id)"
             
         case .deleteFolder(_, let id):
-            return "/plugin/wangpan/folders/\(id)"
+            return "/wangpan/api/folders/\(id)"
             
         case .decryptFolder(_, let name, _):
-            return "/plugin/wangpan/folders/\(name)"
+            return "/wangpan/api/folders/\(name)"
             
         case .createFolder:
-            return "/plugin/wangpan/folders"
+            return "/wangpan/api/folders"
             
         case .editFolder(_, let id, _, _, _, _, _, _):
-            return "/plugin/wangpan/folders/\(id)"
+            return "/wangpan/api/folders/\(id)"
             
         case .hardDiskList:
-            return "/plugin/wangpan/disks"
+            return "/wangpan/api/disks"
             
         case .addDiskToPool:
-            return "/plugin/wangpan/disks"
+            return "/wangpan/api/disks"
             
         case .storagePoolList:
-            return "/plugin/wangpan/pools"
+            return "/wangpan/api/pools"
             
         case .storagePoolDetail(_, let name):
-            return "/plugin/wangpan/pools/\(name)"
+            return "/wangpan/api/pools/\(name)"
             
         case .editStoragePool(_, let name, _):
-            return "/plugin/wangpan/pools/\(name)"
+            return "/wangpan/api/pools/\(name)"
             
         case .deleteStoragePool(_, let name):
-            return "/plugin/wangpan/pools/\(name)"
+            return "/wangpan/api/pools/\(name)"
             
         case .addStoragePool:
-            return "/plugin/wangpan/pools/"
+            return "/wangpan/api/pools/"
             
         case .editFolderPwd:
-            return "/plugin/wangpan/updateFolderPwd"
+            return "/wangpan/api/updateFolderPwd"
             
         case .editPartition(_, let name, _, _, _, _):
-            return "/plugin/wangpan/partitions/\(name)"
+            return "/wangpan/api/partitions/\(name)"
             
         case .deletePartition(_, let name, _):
-            return "/plugin/wangpan/partitions/\(name)"
+            return "/wangpan/api/partitions/\(name)"
             
         case .addPartition:
-            return "/plugin/wangpan/partitions"
+            return "/wangpan/api/partitions"
             
         case .folderSettings:
-            return "/plugin/wangpan/settings"
+            return "/wangpan/api/settings"
             
         case .editFolderSettings:
-            return "/plugin/wangpan/settings"
+            return "/wangpan/api/settings"
             
         case .restartAsyncTask(_, let task_id):
-            return "/plugin/wangpan/tasks/\(task_id)"
+            return "/wangpan/api/tasks/\(task_id)"
             
         case .deleteAsyncTask(_, let task_id):
-            return "/plugin/wangpan/tasks/\(task_id)"
+            return "/wangpan/api/tasks/\(task_id)"
             
         case .temporaryIP:
-            return "/datatunnel"
+            return "/api/datatunnel"
+            
+        case .login:
+            return "/api/sessions/login"
+            
+        case .getAreasToken(let user_id, let type):
+            return "/api/users/\(user_id)/extension/\(type)/tokens"
+            
         }
     }
     
@@ -359,6 +385,12 @@ extension ApiService: TargetType {
             return .delete
             
         case .temporaryIP:
+            return .get
+            
+        case .login:
+            return .post
+            
+        case .getAreasToken:
             return .get
         }
     }
@@ -560,15 +592,21 @@ extension ApiService: TargetType {
                     ],
                 encoding: URLEncoding.default
             )
+            
+        case .login(let phone, let pwd):
+            return .requestParameters(parameters: ["phone": phone,
+                                                   "password": pwd],
+                                      encoding: JSONEncoding.default)
+            
+        case .getAreasToken:
+            return .requestPlain
         }
     }
     
     var headers: [String : String]? {
         var headers = [String: String]()
-       //        headers["scope-token"] = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2MzA3MjA3NjMsInNhX2lkIjoiaXZya3FjLXNhIiwic2NvcGVzIjoidXNlcixhcmVhIiwidWlkIjo2OH0.CfACCQFui2ciqkruo_r8zEwxN2b85lBQ0ehmwhi1miQ"
 
         headers["scope-token"] = AreaManager.shared.currentArea.scope_token
-
 
         headers["Area-ID"] = "\(AreaManager.shared.currentArea.id)"
         
@@ -644,8 +682,18 @@ extension MoyaProvider {
                 
             case .failure(let error):
                 let moyaError = error as MoyaError
-                let statusCode = moyaError.response?.statusCode ?? -1
+                var statusCode = moyaError.response?.statusCode ?? -1
                 let errorMessage = "error"
+                
+                if let afError = moyaError.errorUserInfo["NSUnderlyingError"] as? Alamofire.AFError,
+                   let underlyingError = afError.underlyingError {
+                    statusCode = (underlyingError as NSError).code
+                    /// 可能是SA地址发生了改变 尝试搜索发现SA
+                    if statusCode == NSURLErrorNotConnectedToInternet || statusCode == NSURLErrorCannotConnectToHost || statusCode == NSURLErrorTimedOut {
+                        UDPDeviceTool.updateAreaSAAddress()
+                    }
+                       
+                }
                 
                 if printDebugInfo {
                     print("-----------------------------< ApiService >--------------------------------")
@@ -733,8 +781,18 @@ extension MoyaProvider {
                 
             case .failure(let error):
                 let moyaError = error as MoyaError
-                let statusCode = moyaError.response?.statusCode ?? -1
+                var statusCode = moyaError.response?.statusCode ?? -1
                 let errorMessage = "error"
+                
+                if let afError = moyaError.errorUserInfo["NSUnderlyingError"] as? Alamofire.AFError,
+                   let underlyingError = afError.underlyingError {
+                    statusCode = (underlyingError as NSError).code
+                    /// 可能是SA地址发生了改变 尝试搜索发现SA
+                    if statusCode == NSURLErrorNotConnectedToInternet || statusCode == NSURLErrorCannotConnectToHost || statusCode == NSURLErrorTimedOut {
+                        UDPDeviceTool.updateAreaSAAddress()
+                    }
+                       
+                }
                 
                 if printDebugInfo {
                     print("-----------------------------< ApiService >--------------------------------")

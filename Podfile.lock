@@ -1,12 +1,14 @@
 PODS:
   - Alamofire (5.4.2)
   - AttributedString (2.2.0)
+  - CocoaAsyncSocket (7.6.5)
+  - CryptoSwift (1.4.2)
   - HandyJSON (5.0.2)
-  - Kingfisher (7.0.0)
+  - Kingfisher (7.1.0)
   - MJRefresh (3.5.0)
-  - Moya (14.0.0):
-    - Moya/Core (= 14.0.0)
-  - Moya/Core (14.0.0):
+  - Moya (15.0.0):
+    - Moya/Core (= 15.0.0)
+  - Moya/Core (15.0.0):
     - Alamofire (~> 5.0)
   - SnapKit (5.0.1)
   - Then (2.7.0)
@@ -16,8 +18,10 @@ PODS:
 DEPENDENCIES:
   - Alamofire
   - AttributedString
+  - CocoaAsyncSocket
+  - CryptoSwift
   - HandyJSON
-  - Kingfisher (~> 7.0)
+  - Kingfisher
   - MJRefresh
   - Moya
   - SnapKit
@@ -29,6 +33,8 @@ SPEC REPOS:
   https://github.com/CocoaPods/Specs.git:
     - Alamofire
     - AttributedString
+    - CocoaAsyncSocket
+    - CryptoSwift
     - HandyJSON
     - Kingfisher
     - MJRefresh
@@ -41,15 +47,17 @@ SPEC REPOS:
 SPEC CHECKSUMS:
   Alamofire: bfbc4c2fe5909b1d94fb4ef2277c6b3727ef5dae
   AttributedString: 386c1af029cc3186288d9feb84fbbb097928843f
+  CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
+  CryptoSwift: a532e74ed010f8c95f611d00b8bbae42e9fe7c17
   HandyJSON: 9e4e236f5d2dbefad5155a77417bbea438201c03
-  Kingfisher: 5efc54fec3980f92354898532e562cc17f31efb4
+  Kingfisher: cdabaf49be7ee7cc124f0f276b355edf61903cf8
   MJRefresh: 6afc955813966afb08305477dd7a0d9ad5e79a16
-  Moya: 5b45dacb75adb009f97fde91c204c1e565d31916
+  Moya: 138f0573e53411fb3dc17016add0b748dfbd78ee
   SnapKit: 97b92857e3df3a0c71833cce143274bf6ef8e5eb
   Then: acfe0be7e98221c6204e12f8161459606d5d822d
   Toast-Swift: 9b6a70f28b3bf0b96c40d46c0c4b9d6639846711
   TZImagePickerController: a37d7eec87c54436e896a67947033ad2178d498b
 
-PODFILE CHECKSUM: 39ab337000ac150689cfe909e553934626b33e4e
+PODFILE CHECKSUM: 3804fb8f4242582102316827afdaa8b05d3d7f57
 
-COCOAPODS: 1.11.2
+COCOAPODS: 1.10.1

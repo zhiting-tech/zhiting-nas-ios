@@ -12,6 +12,8 @@ class Area: BaseModel {
     var id = ""
     /// 名称
     var name = ""
+    /// sa的id
+    var sa_id: String?
     /// sa的地址
     var sa_lan_address: String?
     /// sa的token
@@ -30,10 +32,9 @@ class Area: BaseModel {
     var requestURL: URL {
         if bssid == NetworkStateManager.shared.getWifiBSSID()
             && bssid != nil {//局域网
-            return URL(string: "\(sa_lan_address ?? "")/api")!
+            return URL(string: "\(sa_lan_address ?? "")")!
         } else {
-            return URL(string: "\(temporaryIP)/api")!
-//            return URL(string: "\(sa_lan_address ?? "")/api")!
+            return URL(string: "\(temporaryIP)")!
         }
     }
 

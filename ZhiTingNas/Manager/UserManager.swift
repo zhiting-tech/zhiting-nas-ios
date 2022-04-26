@@ -30,7 +30,37 @@ class UserManager {
     
     @UserDefaultString("cloudUrl")
     var cloudUrl: String
-
+    
+    var allowCellular: Bool {
+        get {
+            getUserOptions(options: "allowCellular")
+        }
+        
+        set {
+            setUserOptions(options: "allowCellular", value: newValue)
+        }
+    }
+    
+    var allowPhotoBackups: Bool {
+        get {
+            getUserOptions(options: "allowPhotoBackups")
+        }
+        
+        set {
+            setUserOptions(options: "allowPhotoBackups", value: newValue)
+        }
+    }
+  
+    var allowVideoBackups: Bool {
+        get {
+            getUserOptions(options: "allowVideoBackups")
+        }
+        
+        set {
+            setUserOptions(options: "allowVideoBackups", value: newValue)
+        }
+    }
+    
 
     /// 获取缓存的用户信息
     /// - Returns: 用户信息缓存
@@ -63,6 +93,14 @@ class UserManager {
         
         try? jsonData.write(to: url)
 
+    }
+    
+    func setUserOptions(options: String, value: Bool) {
+        UserDefaults.standard.set(value, forKey: "\(options)_\(currentUser.user_id)_\(AreaManager.shared.currentArea.id)")
+    }
+    
+    func getUserOptions(options: String) -> Bool {
+        return UserDefaults.standard.bool(forKey: "\(options)_\(currentUser.user_id)_\(AreaManager.shared.currentArea.id)") 
     }
 }
 

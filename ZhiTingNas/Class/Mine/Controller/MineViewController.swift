@@ -15,7 +15,7 @@ class MineViewController: BaseViewController {
     
     private lazy var areaSelectView = SwtichAreaView()
     
-    var cellRows: [MineCell.MineCellType] = [.document]
+    var cellRows: [MineCell.MineCellType] = [.document, .backupManage, .downloadSetting, .cleanCache]
 
     private lazy var settingAlert = MineSettingAlert(frame: CGRect(x: 0, y: 0, width: Screen.screenWidth, height: Screen.screenHeight))
     
@@ -82,9 +82,7 @@ class MineViewController: BaseViewController {
                 HTTPCookieStorage.shared.removeCookies(since: Date.init(timeIntervalSince1970: 0))
                 AreaManager.shared.clearAreas()
                 self?.showToast("退出成功".localizedString)
-                let vc = LoginViewController()
-                let nav = UINavigationController(rootViewController: vc)
-                SceneDelegate.shared.window?.rootViewController = nav
+                SceneDelegate.shared.setupWindow()
             }
         }
         
@@ -158,10 +156,10 @@ extension MineViewController {
             guard let self = self else { return }
             self.headerView.userName.text = response.nickname
             if response.is_owner == true {
-                self.cellRows = [.storage, .document]
+                self.cellRows = [.storage, .document, .backupManage, .downloadSetting, .cleanCache]
                 self.tableView.reloadData()
             } else {
-                self.cellRows = [.document]
+                self.cellRows = [.document, .backupManage, .downloadSetting, .cleanCache]
                 self.tableView.reloadData()
             }
             
@@ -169,7 +167,7 @@ extension MineViewController {
         } failureCallback: { [weak self] code, err in
             guard let self = self else { return }
             self.headerView.userName.text = UserManager.shared.currentUser.nickname
-            self.cellRows = [.document]
+            self.cellRows = [.document, .backupManage, .downloadSetting, .cleanCache]
             self.tableView.reloadData()
         }
 
@@ -197,7 +195,37 @@ extension MineViewController: UITableViewDelegate, UITableViewDataSource {
         case .document:
             let vc = FolderManageViewController()
             navigationController?.pushViewController(vc, animated: true)
+            
+        case .cleanCache:
+            ZTCTool.getTotalCacheSize { [weak self] size in
+                guard let self = self else { return }
+                if size == "0 MB" {
+                    return
+                } else {
+                    NormalAlertView.show(title: "提示".localizedString,
+                                         message: "确认清理应用缓存数据吗?".localizedString,
+                                         leftTap: "取消".localizedString,
+                                         rightTap: "确认".localizedString) { [weak self] tap in
+                        guard let self = self else { return }
+                        if tap == 1 {
+                            ZTCTool.clearCache()
+                            self.tableView.reloadData()
+                        }
+                    }
+                }
+            }
 
+            
+            
+            
+            
+        case .downloadSetting:
+            let vc = TransferSettingViewController()
+            navigationController?.pushViewController(vc, animated: true)
+
+        case .backupManage:
+            let vc = BackupManageViewController()
+            navigationController?.pushViewController(vc, animated: true)
         }
 
     }

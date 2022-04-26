@@ -20,6 +20,8 @@ class SwitchButton: UIControl {
     var margin: CGFloat = 2.5
     
     var isOn: Bool = false
+    
+    var stateChangeCallback: ((Bool) -> ())?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -67,6 +69,7 @@ extension SwitchButton {
     private func stateChanges() {
         isOn ? offAnimation() : onAnimation()
         isOn = !isOn
+        stateChangeCallback?(isOn)
     }
     
     private func onAnimation() {

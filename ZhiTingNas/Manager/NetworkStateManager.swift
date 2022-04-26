@@ -13,16 +13,32 @@ import SystemConfiguration.CaptiveNetwork
 
 // MARK: - StateManager
 class NetworkStateManager: NSObject {
-    private enum NetworkENV: String {
+    enum NetworkENV: String {
         case wifi = "en0"
         case cellular = "pdp_ip0"
         case ipv4 = "ipv4"
         case ipv6 = "ipv6"
     }
     
-    enum NetworkStatus {
-        case reachable
+    enum NetworkStatus: Equatable {
+        case reachable(type:NetworkENV)
         case noNetwork
+        
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            switch (lhs, rhs) {
+                
+            case (.noNetwork, .noNetwork),
+                (.reachable(.wifi), .reachable(.wifi)),
+                (.reachable(.cellular), .reachable(.cellular)),
+                (.reachable(.ipv4), .reachable(.ipv4)),
+                (.reachable(.ipv6), .reachable(.ipv6)):
+                return true
+                
+            default:
+                return false
+
+            }
+        }
     }
     
     /// 当前Wifi SSID
@@ -32,7 +48,7 @@ class NetworkStateManager: NSObject {
     
     var locationManager: CLLocationManager?
     
-    var networkState: NetworkStatus = .reachable
+    var networkState: NetworkStatus = .reachable(type: .wifi)
     
     private lazy var reachabilityManager = NetworkReachabilityManager()
     
@@ -55,9 +71,21 @@ class NetworkStateManager: NSObject {
             case .notReachable, .unknown:
                 self?.networkState = .noNetwork
                 self?.networkStatusPublisher.send(.noNetwork)
-            case .reachable:
-                self?.networkState = .reachable
-                self?.networkStatusPublisher.send(.reachable)
+            case .reachable(let connectionType):
+                switch connectionType {
+                case .cellular:
+                    self?.networkState = .reachable(type:.cellular)
+                    DispatchQueue.main.async {
+                        self?.networkStatusPublisher.send(.reachable(type:.cellular))
+                    }
+                    
+                case .ethernetOrWiFi:
+                    self?.networkState = .reachable(type:.wifi)
+                    DispatchQueue.main.async {
+                        self?.networkStatusPublisher.send(.reachable(type:.wifi))
+                    }
+                }
+
                 
             }
             

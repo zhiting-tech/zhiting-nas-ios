@@ -194,7 +194,7 @@ extension TransferDownloadFailAlert: UITableViewDelegate, UITableViewDataSource 
         cell.setDownloadModel(model: model)
         cell.btnCallback = { [weak self] in
             guard let self = self else { return }
-            GoFileNewManager.shared.deleteDownloadTask(by: model)
+            GoFileManager.shared.deleteDownloadTask(by: model)
             self.getFileList()
         }
 
@@ -208,7 +208,7 @@ extension TransferDownloadFailAlert {
         guard let task = taskInfo else { return }
         docNameLabel.text = task.name
 
-        let total = GoFileNewManager.shared.getDownloadDirInfo(by: task)
+        let total = GoFileManager.shared.getDownloadDirInfo(by: task)
         fileList = total.filter({ $0.status == 4 })
         tableView.reloadData()
 

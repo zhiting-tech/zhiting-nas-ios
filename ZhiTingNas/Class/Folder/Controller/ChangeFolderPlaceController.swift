@@ -14,7 +14,7 @@ enum MoveType {
 
 
 class ChangeFolderPlaceController: BaseViewController {
-
+    var refreshCallback: ((_ ids: [Int]) -> ())?
     var type = MoveType.move
     var controllerTag = 0
     var isRootPath = false
@@ -28,7 +28,7 @@ class ChangeFolderPlaceController: BaseViewController {
     //加密的根目录文件
     var encrytRootFile = FileModel()
     //解密输入框
-    private var tipsTestFieldAlert: TipsTestFieldAlertView?
+    private var tipsTestFieldAlert: TipsTextFieldAlertView?
     
     private var isGetAllData = false//是否已获取服务器所有数据
     
@@ -139,7 +139,8 @@ class ChangeFolderPlaceController: BaseViewController {
         }
         
         // MARK: - FunctionAction
-        headerView.actionCallback = { tag in
+        headerView.actionCallback = { [weak self] tag in
+            guard let self = self else { return }
             if tag == 1 {
                 print("取消当前操作")
                 self.navigationController?.dismiss(animated: true, completion: nil)
@@ -232,7 +233,8 @@ class ChangeFolderPlaceController: BaseViewController {
                         self.tableView.reloadData()
                     }
 
-                } failureCallback: { code, err in
+                } failureCallback: { [weak self] code, err in
+                    guard let self = self else { return }
                     print("请求失败")
                     self.tableView.mj_header?.endRefreshing()
                     self.tableView.mj_footer?.endRefreshing()
@@ -315,7 +317,9 @@ class ChangeFolderPlaceController: BaseViewController {
         createNewFolderBtn.clickCallBack = { [weak self] _ in
             guard let self = self else { return }
             self.showCreatNewFolderView()
-            self.setNameView?.setNameCallback = { name in
+            self.setNameView?.setNameCallback = { [weak self] name in
+                guard let self = self else { return }
+
                 if name.isEmpty {
                     SceneDelegate.shared.window?.makeToast("请输入名称".localizedString)
                     return
@@ -489,6 +493,7 @@ extension ChangeFolderPlaceController: UITableViewDataSource,UITableViewDelegate
                     let vc = ChangeFolderPlaceController()
                     vc.currentPath = "/"
                     vc.isRootPath = false
+                    vc.refreshCallback = self.refreshCallback
                     vc.seletedFiles = seletedFiles
                     vc.isNeedRequestFileList = true
                     vc.type = type
@@ -500,6 +505,7 @@ extension ChangeFolderPlaceController: UITableViewDataSource,UITableViewDelegate
                 //共享文件夹
                 let vc = ChangeFolderPlaceController()
                 vc.isRootPath = false
+                vc.refreshCallback = self.refreshCallback
                 vc.seletedFiles = seletedFiles
                 vc.isNeedRequestShareList = true
                 vc.type = type
@@ -528,10 +534,14 @@ extension ChangeFolderPlaceController: UITableViewDataSource,UITableViewDelegate
     private func pushToFolder(file:FileModel, isEncryt:Bool, isEncrytRoot:Bool){
         if isEncryt {//加密文件
             
-            checkEncrytFolder(file: file, isEncrytRoot: isEncrytRoot) {
+            checkEncrytFolder(file: file, isEncrytRoot: isEncrytRoot) { [weak self] in
+                guard let self = self else {
+                    return
+                }
                 //密码验证完成
-                if isEncrytRoot {//加密文件的根目录
+                if isEncrytRoot { // 加密文件的根目录
                     let vc = ChangeFolderPlaceController()
+                    vc.refreshCallback = self.refreshCallback
                     vc.type = self.type
                     vc.currentPath = file.path
                     vc.isRootPath = false
@@ -543,8 +553,9 @@ extension ChangeFolderPlaceController: UITableViewDataSource,UITableViewDelegate
                     vc.currentPaths = paths
                     self.navigationController?.pushViewController(vc, animated: true)
 
-                }else{//加密文件子目录
+                }else{ // 加密文件子目录
                     let vc = ChangeFolderPlaceController()
+                    vc.refreshCallback = self.refreshCallback
                     vc.type = self.type
                     vc.currentPath = file.path
                     let paths = self.currentPaths + [file.name]
@@ -558,8 +569,9 @@ extension ChangeFolderPlaceController: UITableViewDataSource,UITableViewDelegate
                 }
             }
 
-        }else{//非加密文件
+        } else { // 非加密文件
             let vc = ChangeFolderPlaceController()
+            vc.refreshCallback = self.refreshCallback
             vc.type = type
             vc.currentPath = file.path
             vc.isRootPath = false
@@ -577,7 +589,7 @@ extension ChangeFolderPlaceController: UITableViewDataSource,UITableViewDelegate
             let pwdJsonStr = UserDefaults.standard.value(forKey: key) as? String ?? ""
             let pwdModel = PasswordModel.deserialize(from: pwdJsonStr)
             if pwdModel == nil {
-                self.tipsTestFieldAlert = TipsTestFieldAlertView.show(message: "请输入密码", sureCallback: {[weak self] pwd in
+                self.tipsTestFieldAlert = TipsTextFieldAlertView.show(message: "请输入密码", sureCallback: {[weak self] pwd in
                     guard let self = self else {return}
                     print("密码是\(pwd)")
                     NetworkManager.shared.decryptFolder(name: file.path, password: pwd) { response in
@@ -591,7 +603,9 @@ extension ChangeFolderPlaceController: UITableViewDataSource,UITableViewDelegate
                         let key = AreaManager.shared.currentArea.scope_token + file.path
                         UserDefaults.standard.setValue(pwdModel.toJSONString(prettyPrint:true), forKey: key)
                         complete?()
-                    } failureCallback: { code, err in
+                    } failureCallback: { [weak self] code, err in
+                        guard let self = self else { return }
+
                         //密码验证失败
                         self.showToast(err)
                     }
@@ -603,7 +617,7 @@ extension ChangeFolderPlaceController: UITableViewDataSource,UITableViewDelegate
             let pwdJsonStr = UserDefaults.standard.value(forKey: rootPasswordKey) as? String ?? ""
             let pwdModel = PasswordModel.deserialize(from: pwdJsonStr)
             if pwdModel == nil {
-                self.tipsTestFieldAlert = TipsTestFieldAlertView.show(message: "请输入密码", sureCallback: {[weak self] pwd in
+                self.tipsTestFieldAlert = TipsTextFieldAlertView.show(message: "请输入密码", sureCallback: {[weak self] pwd in
                     guard let self = self else {return}
                     print("密码是\(pwd)")
                     NetworkManager.shared.decryptFolder(name: file.path, password: pwd) {[weak self] response in
@@ -618,7 +632,8 @@ extension ChangeFolderPlaceController: UITableViewDataSource,UITableViewDelegate
                         let key = self.rootPasswordKey
                         UserDefaults.standard.setValue(pwdModel.toJSONString(prettyPrint:true), forKey: key)
                         complete?()
-                    } failureCallback: { code, err in
+                    } failureCallback: { [weak self] code, err in
+                        guard let self = self else { return }
                         //密码验证失败
                         self.showToast(err)
                     }
@@ -639,19 +654,22 @@ extension ChangeFolderPlaceController{
         }else{
             action = "copy"
         }
-        var filePaths = [String]()
-        for file in seletedFiles {
-            filePaths.append(file.path)
-        }
+
+        let filePaths = seletedFiles.map(\.path)
+        let ids = seletedFiles.map(\.id)
         
         let pwdJsonStr:String = UserDefaults.standard.value(forKey: rootPasswordKey) as? String ?? ""
         let pwdModel = PasswordModel.deserialize(from: pwdJsonStr)
         LoadingView.show()
-        NetworkManager.shared.moveFiles(sources: filePaths, action: action, destination: currentPath, destination_pwd: pwdModel?.password ?? "") {[weak self] respond in
+        NetworkManager.shared.moveFiles(sources: filePaths, action: action, destination: currentPath, destination_pwd: pwdModel?.password ?? "") { [weak self] respond in
             guard let self = self else {return}
             print(respond.reason)
             LoadingView.hide()
             self.showToast(String(format: "%@成功", self.type == .move ? "移动":"复制"))
+            if self.type == .move {
+                self.refreshCallback?(ids)
+            }
+            
             self.navigationController?.dismiss(animated: true, completion: nil)
         } failureCallback: {[weak self] code, err in
             guard let self = self else {return}

@@ -13,6 +13,12 @@ class MineCell: UITableViewCell, ReusableView {
         case storage
         /// 文件夹管理
         case document
+        /// 清理缓存
+        case cleanCache
+        /// 下载设置
+        case downloadSetting
+        /// 备份管理
+        case backupManage
     }
 
     private lazy var icon = ImageView().then {
@@ -23,6 +29,13 @@ class MineCell: UITableViewCell, ReusableView {
         $0.font = .font(size: ZTScaleValue(14), type: .bold)
         $0.textColor = .custom(.black_3f4663)
     }
+    
+    private lazy var detail = UILabel().then {
+        $0.font = .font(size: ZTScaleValue(14), type: .medium)
+        $0.textColor = .custom(.gray_94a5be)
+        $0.textAlignment = .right
+    }
+
 
     private lazy var arrow = ImageView().then {
         $0.contentMode = .scaleAspectFit
@@ -49,6 +62,23 @@ class MineCell: UITableViewCell, ReusableView {
         case .document:
             title.text = "文件夹管理".localizedString
             icon.image = .assets(.mine_doc)
+        case .cleanCache:
+            title.text = "清除缓存".localizedString
+            icon.image = .assets(.icon_clean_cache)
+            ZTCTool.getTotalCacheSize { [weak self] size in
+                self?.detail.text = size
+            }
+            arrow.isHidden = true
+            detail.snp.remakeConstraints {
+                $0.centerY.equalTo(icon.snp.centerY)
+                $0.right.equalToSuperview().offset(-15.ztScaleValue)
+            }
+        case .downloadSetting:
+            title.text = "下载设置".localizedString
+            icon.image = .assets(.icon_download_setting)
+        case .backupManage:
+            title.text = "备份管理".localizedString
+            icon.image = .assets(.icon_backup)
         }
     }
 
@@ -61,6 +91,7 @@ class MineCell: UITableViewCell, ReusableView {
         contentView.backgroundColor = .custom(.white_ffffff)
         contentView.addSubview(icon)
         contentView.addSubview(title)
+        contentView.addSubview(detail)
         contentView.addSubview(arrow)
         contentView.addSubview(line)
     }
@@ -73,6 +104,11 @@ class MineCell: UITableViewCell, ReusableView {
             $0.bottom.equalToSuperview().offset(-15.ztScaleValue)
         }
         
+        detail.snp.makeConstraints {
+            $0.centerY.equalTo(icon.snp.centerY)
+            $0.right.equalTo(arrow.snp.left).offset(-8)
+        }
+
         arrow.snp.makeConstraints {
             $0.centerY.equalTo(icon.snp.centerY)
             $0.right.equalToSuperview().offset(-15.ztScaleValue)

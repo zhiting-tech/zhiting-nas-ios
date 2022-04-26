@@ -18,7 +18,7 @@ class MyFileViewController: BaseViewController {
     private lazy var emptyView = FileEmptyView()
     
     //加密文件夹弹框
-    private var tipsTestFieldAlert: TipsTestFieldAlertView?
+    private var tipsTestFieldAlert: TipsTextFieldAlertView?
 
     var transitionUtil = FolderTransitionUtil()
 
@@ -66,9 +66,9 @@ class MyFileViewController: BaseViewController {
     override func viewWillAppear(_ animated: Bool) {
         self.navigationController?.navigationBar.isHidden = true
         
-        LoadingView.show()
+        
         reload()
-        let transferingItemsCount = GoFileNewManager.shared.getTotalonGoingCount()//GoFileNewManager.shared.getDownloadList().filter({ $0.status != 3 }).count + GoFileNewManager.shared.getUploadList().filter({ $0.status != 3 }).count
+        let transferingItemsCount = GoFileManager.shared.getTotalonGoingCount()
         self.myFileHeader.transferListBtn.setUpNumber(value: transferingItemsCount)
     }
     
@@ -136,10 +136,10 @@ class MyFileViewController: BaseViewController {
             }
             .store(in: &cancellables)
         
-        GoFileNewManager.shared.taskCountChangePublisher
+        GoFileManager.shared.taskCountChangePublisher
             .sink { [weak self] _ in
                 guard let self = self else { return }
-                let transferingItemsCount = GoFileNewManager.shared.getTotalonGoingCount()
+                let transferingItemsCount = GoFileManager.shared.getTotalonGoingCount()
                 DispatchQueue.main.async {
                     self.myFileHeader.transferListBtn.setUpNumber(value: transferingItemsCount)
                 }
@@ -163,16 +163,20 @@ class MyFileViewController: BaseViewController {
 
     private func loadDatas(isReload:Bool){
         if isReload {//下拉刷新
+            showLoading()
             currentDatas.removeAll()
             isGetAllData = false
+            tableView.reloadData()
             tableView.mj_footer?.resetNoMoreData()
+            tableView.mj_header?.endRefreshing()
+            tableView.mj_footer?.endRefreshing()
         }
         
         let page = (currentDatas.count / 30) + 1
 
         NetworkManager.shared.fileList(path: "/", page: page, page_size: 30) { [weak self] response in
             guard let self = self else { return }
-            LoadingView.hide()
+            self.hideLoading()
             self.tableView.mj_header?.endRefreshing()
             self.tableView.mj_footer?.endRefreshing()
             
@@ -213,7 +217,7 @@ class MyFileViewController: BaseViewController {
             }
         } failureCallback: {[weak self] code, err in
             guard let self = self else { return }
-            LoadingView.hide()
+            self.hideLoading()
             self.tableView.mj_header?.endRefreshing()
             self.tableView.mj_footer?.endRefreshing()
             
@@ -247,7 +251,9 @@ extension MyFileViewController: UITableViewDataSource,UITableViewDelegate {
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: FileTableViewCell.reusableIdentifier, for: indexPath) as! FileTableViewCell
         cell.selectionStyle = .none
-        cell.setModel(currentModel: currentDatas[indexPath.row])
+        if indexPath.row < currentDatas.count {
+            cell.setModel(currentModel: currentDatas[indexPath.row])
+        }
         cell.selectBtn.isHidden = true
         return cell
     }
@@ -268,7 +274,7 @@ extension MyFileViewController: UITableViewDataSource,UITableViewDelegate {
 
         if isNeedPwd {
             //存储文件夹根目录Key
-            self.tipsTestFieldAlert = TipsTestFieldAlertView.show(message: "请输入密码", sureCallback: { pwd in
+            self.tipsTestFieldAlert = TipsTextFieldAlertView.show(message: "请输入密码", sureCallback: { pwd in
                 print("密码是\(pwd)")
                 NetworkManager.shared.decryptFolder(name: file.path, password: pwd) {[weak self] response in
                     guard let self = self else {return}
@@ -340,12 +346,18 @@ extension MyFileViewController: UITableViewDataSource,UITableViewDelegate {
             }
             
             switch type {
+                
+            case .preview:
+                print("点击预览")
+                self.myFileDetailView.removeFromSuperview()
+                
             case .open:
                 print("点击其他应用打开")
                 self.myFileDetailView.removeFromSuperview()
+                
             case .download:
                 print("点击下载")
-                GoFileNewManager.shared.download(path: file.path)
+                GoFileManager.shared.download(path: file.path, thumbnailUrl: file.thumbnail_url)
                 
                 SceneDelegate.shared.window?.makeToast("已添加至传输列表".localizedString)
                 self.myFileDetailView.removeFromSuperview()
@@ -482,12 +494,12 @@ class PasswordModel: BaseModel {
 }
 
 class FileEmptyView: UIView {
-    private lazy var icon = ImageView().then {
+    lazy var icon = ImageView().then {
         $0.contentMode = .scaleAspectFit
         $0.image = .assets(.empty_file)
     }
     
-    private lazy var label = UILabel().then {
+    lazy var label = UILabel().then {
         $0.font = .font(size: 14.ztScaleValue, type: .regular)
         $0.textColor = .custom(.gray_94a5be)
         $0.textAlignment = .center

@@ -182,7 +182,7 @@ extension FolderManageViewController: UICollectionViewDelegate, UICollectionView
         cell.menuCallback = { [weak self] in
             guard let self = self, let cell = self.collectionView.cellForItem(at: indexPath) else { return }
             let x = 35.ztScaleValue
-            let y = 50.ztScaleValue + Screen.k_nav_height
+            let y = 50.ztScaleValue
             let alertPoint = cell.convert(CGPoint(x: x, y: y), to: self.view)
             let alert = MenuAlert(items: [.init(title: "更改密码", icon: .assets(.icon_lock))], alertPoint: alertPoint)
             alert.selectCallback = { [weak self] item in

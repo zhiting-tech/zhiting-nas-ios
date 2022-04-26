@@ -61,10 +61,11 @@ class ShareFileViewController: BaseViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         self.navigationController?.navigationBar.isHidden = true
-        LoadingView.show()
+        
         refresh()
-        let transferingItemsCount = GoFileNewManager.shared.getDownloadList().filter({ $0.status != 3 }).count + GoFileNewManager.shared.getUploadList().filter({ $0.status != 3 }).count
+        let transferingItemsCount = GoFileManager.shared.getTotalonGoingCount()
         self.myFileHeader.transferListBtn.setUpNumber(value: transferingItemsCount)
+        
     }
     
     override func setupViews() {
@@ -237,10 +238,10 @@ class ShareFileViewController: BaseViewController {
             }
             .store(in: &cancellables)
         
-        GoFileNewManager.shared.taskCountChangePublisher
+        GoFileManager.shared.taskCountChangePublisher
             .sink { [weak self] _ in
                 guard let self = self else { return }
-                let transferingItemsCount = GoFileNewManager.shared.getTotalonGoingCount()
+                let transferingItemsCount = GoFileManager.shared.getTotalonGoingCount()
                 DispatchQueue.main.async {
                     self.myFileHeader.transferListBtn.setUpNumber(value: transferingItemsCount)
                 }
@@ -253,6 +254,7 @@ class ShareFileViewController: BaseViewController {
         seletedFiles.removeAll()
         tableView.reloadData()
         hideAllFuntionView()
+        showLoading()
         getDiskData()
     }
     
@@ -262,7 +264,7 @@ class ShareFileViewController: BaseViewController {
         NetworkManager.shared.shareFileList(page: page, page_size: 30) { [weak self] response in
             guard let self = self else {return}
             print("请求成功")
-            LoadingView.hide()
+            self.hideLoading()
             self.tableView.mj_header?.endRefreshing()
             self.tableView.mj_footer?.endRefreshing()
             
@@ -293,7 +295,7 @@ class ShareFileViewController: BaseViewController {
         } failureCallback: {[weak self] code, err in
             guard let self = self else { return }
             print("请求失败")
-            LoadingView.hide()
+            self.hideLoading()
             self.tableView.mj_header?.endRefreshing()
 
             if self.currentDatas.count == 0 {

@@ -6,8 +6,7 @@
 //
 
 import UIKit
-import  AVFoundation
-import  MobileCoreServices
+import AVKit
 
 class TransferDownloadCell: UITableViewCell,ReusableView {
     var stateBtnCallback: (() -> ())?
@@ -15,25 +14,26 @@ class TransferDownloadCell: UITableViewCell,ReusableView {
     var dirFailInfoCallback: (() -> ())?
     
     lazy var iconImgView = ImageView().then{
-        $0.contentMode = .scaleAspectFill
+        $0.contentMode = .scaleAspectFit
+        $0.layer.cornerRadius = 4
         $0.image = .assets(.myFile_tab)
         $0.clipsToBounds = true
     }
     
-    lazy var fileNameLabel = UILabel().then{
+    lazy var fileNameLabel = UILabel().then {
         $0.backgroundColor = .clear
         $0.textColor = .custom(.black_3f4663)
         $0.font = .font(size: ZTScaleValue(14), type: .medium)
     }
     //下载进度
-    lazy var fileProgressLabel = UILabel().then{
+    lazy var fileProgressLabel = UILabel().then {
         $0.backgroundColor = .clear
         $0.textColor = .custom(.gray_a2a7ae)
         $0.font = .font(size: ZTScaleValue(10), type: .medium)
     }
     
     //下载速率或状态
-    lazy var fileStateLabel = UILabel().then{
+    lazy var fileStateLabel = UILabel().then {
         $0.backgroundColor = .clear
         $0.textColor = .custom(.gray_a2a7ae)
         $0.font = .font(size: ZTScaleValue(10), type: .medium)
@@ -70,37 +70,43 @@ class TransferDownloadCell: UITableViewCell,ReusableView {
     }
     
     
+    /// 设置下载model
+    /// - Parameters:
+    ///   - model: gomobile 下载model
+    ///   - filePath: 本地文件地址
     func setDownloadModel(model: GoFileDownloadInfoModel, filePath: String = "") {
         fileNameLabel.text = model.name
         progressView.setProgress(model.percentage, animated: false)
         fileStateLabel.text = "\(model.status)"
         if model.type == "dir" {
+            iconImgView.contentMode = .scaleAspectFit
             iconImgView.image = .assets(.folder_icon)
-        } else{
+        } else {
             
-            if filePath != "" {
-                let fileTypeStrs = model.name.components(separatedBy: ".")
-                switch fileTypeStrs.last?.lowercased() {
-                    case "mp4", "m4v", "avi", "mkv", "mov", "mpg", "mpeg", "vob", "ram", "rm", "rmvb", "asf", "wmv", "webm", "m2ts", "movie" :
+            if model.thumbnail_url == "" {
+                if filePath != "" {
+                    switch ZTCTool.resourceTypeBy(fileName: model.name) {
+                    case .video:
+                        iconImgView.image = ZTCTool.fileImageBy(fileName: model.name)
                         self.getThumbnail(url: filePath)
-                    
-                    case "psd", "pdd", "psdt", "psb", "bmp", "rle", "dib", "gif", "dcm", "dc3", "dic", "eps", "iff", "tdi", "jpg", "jpeg", "jpf", "jpx", "jp2", "j2c", "j2k", "jpc", "jps", "pcx", "pdp", "raw", "pxr", "png", "pbm", "pgm", "ppm", "pnm", "pfm", "pam", "sct", "tga", "vda", "icb", "vst", "tif", "tiff", "mpo", "heic" :
-                    
-                    let data = try! Data(contentsOf: URL(string: filePath)!)
-                    iconImgView.image = UIImage(data: data)//UIImage(contentsOfFile: filePath)
-                    
+                    case .picture:
+                        iconImgView.setImage(urlString: filePath, placeHolder: ZTCTool.fileImageBy(fileName: model.name))
                     default:
+                        iconImgView.image = ZTCTool.fileImageBy(fileName: model.name)
+                    }
+                } else {
                     iconImgView.image = ZTCTool.fileImageBy(fileName: model.name)
                 }
+            } else {
+                iconImgView.setImage(urlString: AreaManager.shared.currentArea.requestURL.absoluteString + "/wangpan/api" + model.thumbnail_url, placeHolder: ZTCTool.fileImageBy(fileName: model.name))
 
-            }else{
-                iconImgView.image = ZTCTool.fileImageBy(fileName: model.name)
             }
             
         }
         
         switch model.status {
         case 0:
+            progressView.isHidden = false
             fileStateLabel.text = "等待下载"
             fileStateLabel.textColor = .custom(.gray_a2a7ae)
             stateBtn.setImage(.assets(.btn_download), for: .normal)
@@ -111,6 +117,7 @@ class TransferDownloadCell: UITableViewCell,ReusableView {
             }
             
         case 1:
+            progressView.isHidden = false
             fileStateLabel.text = "\(ZTCTool.convertFileSize(size:model.speeds))/s"
             fileStateLabel.textColor = .custom(.gray_a2a7ae)
             stateBtn.setImage(.assets(.btn_stop), for: .normal)
@@ -118,6 +125,7 @@ class TransferDownloadCell: UITableViewCell,ReusableView {
         case 2:
             fileStateLabel.text = "等待下载"
             fileStateLabel.textColor = .custom(.gray_a2a7ae)
+            progressView.isHidden = false
             stateBtn.setImage(.assets(.btn_download), for: .normal)
             if model.size == 0 {
                 fileProgressLabel.text = "--/--"
@@ -149,6 +157,7 @@ class TransferDownloadCell: UITableViewCell,ReusableView {
                 $0.width.greaterThanOrEqualTo(ZTScaleValue(50))
             }
         case 4:
+            progressView.isHidden = false
             fileStateLabel.text = "下载失败"
             fileStateLabel.textColor = .custom(.red_fe0000)
             stateBtn.setImage(.assets(.btn_reDownload), for: .normal)
@@ -170,7 +179,7 @@ class TransferDownloadCell: UITableViewCell,ReusableView {
         default:
             break
         }
-
+        setupConstraints()
         
     }
 
@@ -189,43 +198,43 @@ class TransferDownloadCell: UITableViewCell,ReusableView {
     }
     
     private func setupConstraints(){
-        iconImgView.snp.makeConstraints {
+        iconImgView.snp.remakeConstraints {
             $0.centerY.equalToSuperview()
             $0.left.equalTo(ZTScaleValue(15))
             $0.width.height.equalTo(ZTScaleValue(30))
         }
-        progressView.snp.makeConstraints {
+        progressView.snp.remakeConstraints {
             $0.centerY.equalTo(iconImgView).offset(ZTScaleValue(5))
             $0.left.equalTo(iconImgView.snp.right).offset(ZTScaleValue(15))
             $0.width.equalTo(ZTScaleValue(250))
             $0.height.equalTo(ZTScaleValue(2))
         }
         
-        fileNameLabel.snp.makeConstraints {
+        fileNameLabel.snp.remakeConstraints {
             $0.bottom.equalTo(progressView.snp.top).offset(-ZTScaleValue(5))
             $0.left.equalTo(progressView)
             $0.right.equalTo(stateBtn.snp.left).offset(ZTScaleValue(-10))
         }
 
-        fileProgressLabel.snp.makeConstraints {
+        fileProgressLabel.snp.remakeConstraints {
             $0.top.equalTo(progressView.snp.bottom).offset(ZTScaleValue(5))
             $0.left.equalTo(progressView)
             $0.width.greaterThanOrEqualTo(ZTScaleValue(50))
         }
         
-        fileStateLabel.snp.makeConstraints {
+        fileStateLabel.snp.remakeConstraints {
             $0.top.equalTo(progressView.snp.bottom).offset(ZTScaleValue(5))
             $0.right.equalTo(progressView)
             
         }
         
-        errInfoBtn.snp.makeConstraints {
+        errInfoBtn.snp.remakeConstraints {
             $0.centerY.equalTo(fileStateLabel.snp.centerY)
             $0.left.equalTo(fileStateLabel.snp.right).offset(10)
             $0.height.width.equalTo(10.ztScaleValue)
         }
         
-        stateBtn.snp.makeConstraints {
+        stateBtn.snp.remakeConstraints {
             $0.centerY.equalToSuperview()
             $0.right.equalTo(-ZTScaleValue(15))
             $0.width.height.equalTo(ZTScaleValue(20))
@@ -233,10 +242,13 @@ class TransferDownloadCell: UITableViewCell,ReusableView {
     }
     
     private func getThumbnail(url:String){
+
         //异步获取网络视频
         DispatchQueue.global().async {
             //获取网络视频
-            let  videoURL =  URL(string: url)!
+            guard let videoURL =  URL(string: url) else{
+                return
+            }
             let  avAsset =  AVURLAsset(url: videoURL)
             
             //生成视频截图
@@ -255,16 +267,17 @@ class TransferDownloadCell: UITableViewCell,ReusableView {
 
         }
     }
+
     
-    override func prepareForReuse() {        
-        iconImgView.removeFromSuperview()
-        fileNameLabel.removeFromSuperview()
-        progressView.removeFromSuperview()
-        fileProgressLabel.removeFromSuperview()
-        fileStateLabel.removeFromSuperview()
-        stateBtn.removeFromSuperview()
-        errInfoBtn.removeFromSuperview()
-    }
+//    override func prepareForReuse() {
+//        iconImgView.removeFromSuperview()
+//        fileNameLabel.removeFromSuperview()
+//        progressView.removeFromSuperview()
+//        fileProgressLabel.removeFromSuperview()
+//        fileStateLabel.removeFromSuperview()
+//        stateBtn.removeFromSuperview()
+//        errInfoBtn.removeFromSuperview()
+//    }
     
     @objc private func dirFailInfo() {
         dirFailInfoCallback?()

@@ -28,7 +28,7 @@ class SingleTipsAlertView: UIView {
     }
     
     
-    private lazy var detailLabel = UILabel().then {
+    lazy var detailLabel = UILabel().then {
         $0.text = "正在保存分区信息，需要一些时间处理。已为您后台运行，可返回列表刷新查看。"
         $0.textColor = .custom(.black_3f4663)
         $0.textAlignment = .center

@@ -42,6 +42,34 @@ class FileListResponse: BaseModel {
     var pager = PagerModel()
 }
 
+class LoginResponse: BaseModel {
+    var areas: Area?
+    var user_info = UserInfoResponse()
+    
+    class UserInfoResponse: BaseModel {
+        // 云端用户id
+        var user_id = 0
+        var nickname = ""
+        var phone = ""
+    }
+}
+
+class LoginAreasResponse: BaseModel {
+    
+    var extension_token_list = [AreasTokenModel]()
+    
+}
+
+class AreasTokenModel: BaseModel {
+    // 云端用户id
+    var area_id = ""
+    var token = ""
+    var area_name = ""
+    var said = ""
+    var sa_user_id = 1
+    var isSelected = false
+}
+
 class UserDetailResponse: BaseModel {
     var user_info = User()
 }

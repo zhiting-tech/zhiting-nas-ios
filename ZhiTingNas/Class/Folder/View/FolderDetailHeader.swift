@@ -107,8 +107,8 @@ class FolderDetailHeader: UIView {
         
         rightView.snp.makeConstraints {
             $0.right.equalToSuperview().offset(-19.5).priority(.high)
-            $0.bottom.equalToSuperview().offset(-ZTScaleValue(10))
-            $0.height.equalTo(24)
+            $0.centerY.equalTo(fileNameLabel.snp.centerY)
+            $0.height.equalTo(32)
             $0.width.equalTo(0)
         }
 
@@ -130,7 +130,7 @@ class FolderDetailHeader: UIView {
                     transferListBtn.snp.remakeConstraints {
                         $0.bottom.equalToSuperview()
                         $0.right.equalToSuperview().offset(-marginX)
-                        $0.width.height.equalTo(24)
+                        $0.width.height.equalTo(32)
                         $0.top.equalToSuperview()
                     }
                 case .newFolder:
@@ -138,7 +138,7 @@ class FolderDetailHeader: UIView {
                     newFolderBtn.snp.remakeConstraints {
                         $0.bottom.equalToSuperview()
                         $0.right.equalToSuperview().offset(-marginX)
-                        $0.width.height.equalTo(24)
+                        $0.width.height.equalTo(32)
                         $0.top.equalToSuperview()
                     }
                 case .upload:
@@ -146,7 +146,7 @@ class FolderDetailHeader: UIView {
                     uploadBtn.snp.remakeConstraints {
                         $0.bottom.equalToSuperview()
                         $0.right.equalToSuperview().offset(-marginX)
-                        $0.width.height.equalTo(24)
+                        $0.width.height.equalTo(32)
                         $0.top.equalToSuperview()
                     }
                 }

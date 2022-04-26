@@ -12,7 +12,7 @@ import Kingfisher
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
-
+    var isAllOrientation = false
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
@@ -30,7 +30,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         // networkStateManager
         NetworkStateManager.shared.setup()
-        
         
         
         return true
@@ -59,5 +58,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func applicationWillTerminate(_ application: UIApplication) {
 //        GoFileNewManager.shared.quitApp()
     }
+    
+//    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+//        if (allowRotation) {//如果设置了allowRotation属性，支持全屏
+//            return .all
+//         }
+//        return .portrait
+//    }
 }
 

@@ -33,6 +33,8 @@
 @class GonetDownloadCallBack;
 @protocol GonetUploadCallBack;
 @class GonetUploadCallBack;
+@protocol GonetUploadCallback;
+@class GonetUploadCallback;
 @protocol GonetWorker;
 @class GonetWorker;
 
@@ -50,6 +52,11 @@
 - (void)onFinish:(NSString* _Nullable)p0;
 - (void)onStart:(NSString* _Nullable)p0;
 - (void)sendUploadResult:(NSString* _Nullable)p0;
+@end
+
+@protocol GonetUploadCallback <NSObject>
+- (void)sendFailResult:(NSString* _Nullable)p0;
+- (void)sendFinishBackupTaskFileInfo:(NSString* _Nullable)p0;
 @end
 
 @protocol GonetWorker <NSObject>
@@ -124,16 +131,18 @@
 @property (nonatomic) NSString* _Nonnull host;
 @property (nonatomic) NSString* _Nonnull dbPath;
 @property (nonatomic) NSString* _Nonnull headerStr;
+- (void)androidCreateDirDownloader:(NSString* _Nullable)findApi downloadApi:(NSString* _Nullable)downloadApi downloadPath:(NSString* _Nullable)downloadPath downloadToPath:(NSString* _Nullable)downloadToPath headerStr:(NSString* _Nullable)headerStr pwd:(NSString* _Nullable)pwd userId:(long)userId areaId:(long)areaId;
+- (void)androidCreateFileDownloader:(NSString* _Nullable)downloadUrl downloadToPath:(NSString* _Nullable)downloadToPath thumbnailUrl:(NSString* _Nullable)thumbnailUrl headerStr:(NSString* _Nullable)headerStr pwd:(NSString* _Nullable)pwd userId:(long)userId areaId:(long)areaId;
 - (void)changeHost:(NSString* _Nullable)host;
-/**
- * CreateDirDownloader 创建文件夹下载对象
- */
-- (void)createDirDownloader:(NSString* _Nullable)findApi downloadApi:(NSString* _Nullable)downloadApi downloadPath:(NSString* _Nullable)downloadPath headerStr:(NSString* _Nullable)headerStr pwd:(NSString* _Nullable)pwd userId:(long)userId areaId:(long)areaId;
-/**
- * CreateFileDownloader 创建文件下载对象
- */
-- (void)createFileDownloader:(NSString* _Nullable)url headerStr:(NSString* _Nullable)headerStr pwd:(NSString* _Nullable)pwd userId:(long)userId areaId:(long)areaId;
 - (void)delete:(long)id_;
+/**
+ * IosCreateDirDownloader 创建文件夹下载对象
+ */
+- (void)iosCreateDirDownloader:(NSString* _Nullable)findApi downloadApi:(NSString* _Nullable)downloadApi downloadPath:(NSString* _Nullable)downloadPath headerStr:(NSString* _Nullable)headerStr pwd:(NSString* _Nullable)pwd userId:(long)userId areaId:(long)areaId;
+/**
+ * IosCreateFileDownloader 创建文件下载对象
+ */
+- (void)iosCreateFileDownloader:(NSString* _Nullable)downloadUrl thumbnailUrl:(NSString* _Nullable)thumbnailUrl headerStr:(NSString* _Nullable)headerStr pwd:(NSString* _Nullable)pwd userId:(long)userId areaId:(long)areaId;
 /**
  * NetworkNil 网速设置为0，全部设置失败
  */
@@ -148,9 +157,17 @@
  */
 - (void)start:(long)id_;
 /**
+ * StartAll 开始全部任务
+ */
+- (void)startAll:(long)userId areaId:(long)areaId;
+/**
  * Stop 暂停某个项目
  */
 - (void)stop:(long)id_;
+/**
+ * StopAll 暂停全部任务
+ */
+- (void)stopAll:(long)userId areaId:(long)areaId;
 @end
 
 /**
@@ -192,6 +209,8 @@
 @property (nonatomic) long pid;
 @property (nonatomic) NSString* _Nonnull type;
 @property (nonatomic) NSString* _Nonnull url;
+@property (nonatomic) NSString* _Nonnull downloadToPath;
+@property (nonatomic) NSString* _Nonnull thumbnailUrl;
 @property (nonatomic) int64_t size;
 @property (nonatomic) NSString* _Nonnull name;
 @property (nonatomic) int64_t downloaded;
@@ -201,6 +220,7 @@
 @property (nonatomic) int64_t updateTime;
 @property (nonatomic) NSString* _Nonnull pwd;
 @property (nonatomic) NSString* _Nonnull threadInfo;
+- (NSString* _Nonnull)tableName;
 @end
 
 @interface GonetFileDownloadTask : NSObject <goSeqRefInterface> {
@@ -225,7 +245,7 @@
 /**
  * NewFileDownloader 创建新的文件下载器,url下载连接，path存放地址， header自定义header
  */
-- (nullable instancetype)init:(NSString* _Nullable)url path:(NSString* _Nullable)path headerStr:(NSString* _Nullable)headerStr pwd:(NSString* _Nullable)pwd pid:(long)pid userId:(long)userId areaId:(long)areaId;
+- (nullable instancetype)init:(NSString* _Nullable)url thumbnailUrl:(NSString* _Nullable)thumbnailUrl path:(NSString* _Nullable)path headerStr:(NSString* _Nullable)headerStr pwd:(NSString* _Nullable)pwd pid:(long)pid userId:(long)userId areaId:(long)areaId;
 @property (nonatomic) GonetFileDownloadInfo* _Nullable fileDownloadInfo;
 @property (nonatomic) long downloadID;
 @property (nonatomic) NSString* _Nonnull path;
@@ -260,6 +280,7 @@
 
 // skipped method FileDownloader.Run with unsupported parameter or return types
 
+- (NSString* _Nonnull)tableName;
 @end
 
 /**
@@ -275,6 +296,9 @@
 @property (nonatomic) long userId;
 @property (nonatomic) long id_;
 @property (nonatomic) NSString* _Nonnull url;
+@property (nonatomic) NSString* _Nonnull thumbnailUrl;
+@property (nonatomic) NSString* _Nonnull previewUrl;
+@property (nonatomic) long isBackup;
 @property (nonatomic) int64_t size;
 @property (nonatomic) NSString* _Nonnull name;
 @property (nonatomic) int64_t uploaded;
@@ -283,9 +307,13 @@
 @property (nonatomic) NSString* _Nonnull hash;
 @property (nonatomic) int64_t createTime;
 @property (nonatomic) int64_t updateTime;
+@property (nonatomic) int64_t createFileTime;
 @property (nonatomic) NSString* _Nonnull tmpName;
 @property (nonatomic) NSString* _Nonnull pwd;
 @property (nonatomic) NSString* _Nonnull threadInfo;
+@property (nonatomic) NSString* _Nonnull identification;
+@property (nonatomic) long fileType;
+- (NSString* _Nonnull)tableName;
 @end
 
 /**
@@ -300,7 +328,7 @@
  * NewFileUploader new一个文件上传器
 url上传地址|dbPath数据库文件存放目录|filePath文件路径|fileName文件名|headerStr header头
  */
-- (nullable instancetype)init:(NSString* _Nullable)url dbPath:(NSString* _Nullable)dbPath filePath:(NSString* _Nullable)filePath fileName:(NSString* _Nullable)fileName headerStr:(NSString* _Nullable)headerStr pwd:(NSString* _Nullable)pwd userId:(long)userId areaId:(long)areaId;
+- (nullable instancetype)init:(NSString* _Nullable)url dbPath:(NSString* _Nullable)dbPath filePath:(NSString* _Nullable)filePath fileName:(NSString* _Nullable)fileName headerStr:(NSString* _Nullable)headerStr pwd:(NSString* _Nullable)pwd userId:(long)userId areaId:(long)areaId isBackup:(long)isBackup identification:(NSString* _Nullable)identification mobile:(long)mobile;
 @property (nonatomic) GonetFileUploadInfo* _Nullable fileUploadInfo;
 @property (nonatomic) long uploadId;
 @property (nonatomic) NSString* _Nonnull filePath;
@@ -311,10 +339,6 @@ url上传地址|dbPath数据库文件存放目录|filePath文件路径|fileName�
 
 // skipped field FileUploader.Header with unsupported type: map[string]string
 
-/**
- * CreateTmpFile 生成临时文件
- */
-- (BOOL)createTmpFile:(NSError* _Nullable* _Nullable)error;
 /**
  * OnDelete 删除下载任务
  */
@@ -337,14 +361,9 @@ url上传地址|dbPath数据库文件存放目录|filePath文件路径|fileName�
 - (void)onQuit;
 // skipped method FileUploader.OnStart with unsupported parameter or return types
 
-/**
- * RequestMerge 发起一个合并请求
- */
-- (BOOL)requestMerge:(NSError* _Nullable* _Nullable)error;
 // skipped method FileUploader.Run with unsupported parameter or return types
 
-// skipped method FileUploader.UploadBlock with unsupported parameter or return types
-
+- (NSString* _Nonnull)tableName;
 @end
 
 @interface GonetResourceList : NSObject <goSeqRefInterface> {
@@ -356,6 +375,7 @@ url上传地址|dbPath数据库文件存放目录|filePath文件路径|fileName�
 @property (nonatomic) long type;
 @property (nonatomic) NSString* _Nonnull path;
 @property (nonatomic) int64_t size;
+@property (nonatomic) NSString* _Nonnull thumbnailUrl;
 @end
 
 /**
@@ -398,7 +418,7 @@ url上传地址|dbPath数据库文件存放目录|filePath文件路径|fileName�
 @property(strong, readonly) _Nonnull id _ref;
 
 - (nonnull instancetype)initWithRef:(_Nonnull id)ref;
-- (nullable instancetype)init:(NSString* _Nullable)host dbPath:(NSString* _Nullable)dbPath headerStr:(NSString* _Nullable)headerStr;
+- (nullable instancetype)init:(NSString* _Nullable)host dbPath:(NSString* _Nullable)dbPath headerStr:(NSString* _Nullable)headerStr mobile:(long)mobile;
 // skipped field UploadManager.Workers with unsupported type: map[int]gomobile-download-upload/gonet.Worker
 
 // skipped field UploadManager.Cancels with unsupported type: map[int]context.CancelFunc
@@ -406,12 +426,39 @@ url上传地址|dbPath数据库文件存放目录|filePath文件路径|fileName�
 @property (nonatomic) NSString* _Nonnull host;
 @property (nonatomic) NSString* _Nonnull dbPath;
 @property (nonatomic) NSString* _Nonnull headerStr;
-- (void)changeHost:(NSString* _Nullable)host;
 /**
- * CreateFileUploader 创建文件上传对象
+ * AllFailReTry 重试所有失败的备份任务
  */
-- (void)createFileUploader:(NSString* _Nullable)url filePath:(NSString* _Nullable)filePath fileName:(NSString* _Nullable)fileName headerStr:(NSString* _Nullable)headerStr pwd:(NSString* _Nullable)pwd userId:(long)userId areaId:(long)areaId;
+- (void)allFailReTry:(long)userId areaId:(long)areaId;
+- (void)androidAddUploadFile:(NSString* _Nullable)path phoneName:(NSString* _Nullable)phoneName header:(NSString* _Nullable)header userId:(long)userId areaId:(long)areaId fileType:(long)fileType;
+/**
+ * AndroidCloseFileBackup 关闭文件备份
+ */
+- (void)androidCloseFileBackup:(long)userId areaId:(long)areaId ty:(long)ty;
+/**
+ * AndroidCreateFileUploader 创建文件上传对象
+ */
+- (void)androidCreateFileUploader:(NSString* _Nullable)url filePath:(NSString* _Nullable)filePath fileName:(NSString* _Nullable)fileName headerStr:(NSString* _Nullable)headerStr pwd:(NSString* _Nullable)pwd userId:(long)userId areaId:(long)areaId isBackup:(long)isBackup identification:(NSString* _Nullable)identification;
+- (void)changeHost:(NSString* _Nullable)host;
 - (void)delete:(long)id_;
+/**
+ * GetUploadAllBackupsTaskNum 输出正在进行备份的任务总和
+ */
+- (NSString* _Nonnull)getUploadAllBackupsTaskNum:(long)userId areaId:(long)areaId;
+/**
+ * GetUploadBackupList TODO ios列表完成数据过多时采用轮训遍历数据会大大消耗资源
+ */
+- (NSString* _Nonnull)getUploadBackupList:(NSString* _Nullable)path userId:(long)userId areaId:(long)areaId;
+- (int64_t)getUploadBackupOnGoingTaskNum:(long)userId areaId:(long)areaId;
+- (void)iosAddUploadFile:(NSString* _Nullable)path identification:(NSString* _Nullable)identification header:(NSString* _Nullable)header phoneName:(NSString* _Nullable)phoneName userId:(long)userId areaId:(long)areaId folderId:(long)folderId;
+/**
+ * IosCloseFileBackup 关闭文件备份
+ */
+- (void)iosCloseFileBackup:(long)userId areaId:(long)areaId ty:(long)ty;
+/**
+ * IosCreateFileUploader 创建文件上传对象
+ */
+- (void)iosCreateFileUploader:(NSString* _Nullable)url filePath:(NSString* _Nullable)filePath fileName:(NSString* _Nullable)fileName headerStr:(NSString* _Nullable)headerStr pwd:(NSString* _Nullable)pwd userId:(long)userId areaId:(long)areaId isBackup:(long)isBackup identification:(NSString* _Nullable)identification;
 /**
  * NetworkNil 网速设置为0，全部设置失败
  */
@@ -420,15 +467,23 @@ url上传地址|dbPath数据库文件存放目录|filePath文件路径|fileName�
 /**
  * Run 开始下载任务，只能有2个任务
  */
-- (void)run:(NSString* _Nullable)headerStr;
+- (void)run:(NSString* _Nullable)headerStr callback:(id<GonetUploadCallback> _Nullable)callback;
 /**
  * Start 启动某个项目
  */
 - (void)start:(long)id_;
 /**
+ * StartAll 开始全部上传任务
+ */
+- (void)startAll:(long)userId areaId:(long)areaId isBackup:(long)isBackup;
+/**
  * Stop 暂停某个项目
  */
 - (void)stop:(long)id_;
+/**
+ * StopAll 暂停全部上传任务
+ */
+- (void)stopAll:(long)userId areaId:(long)areaId isBackup:(long)isBackup;
 @end
 
 @interface GonetUploadTask : NSObject <goSeqRefInterface> {
@@ -454,14 +509,24 @@ url上传地址|dbPath数据库文件存放目录|filePath文件路径|fileName�
 @property (nonatomic) long id_;
 @end
 
+FOUNDATION_EXPORT const int64_t GonetAudioFileTYpe;
+FOUNDATION_EXPORT const int64_t GonetDocFileType;
 FOUNDATION_EXPORT const int64_t GonetFail;
 FOUNDATION_EXPORT const int64_t GonetFinish;
 FOUNDATION_EXPORT const int64_t GonetGenerating;
+FOUNDATION_EXPORT const int64_t GonetIsBackup;
 FOUNDATION_EXPORT const int64_t GonetOnGoing;
+FOUNDATION_EXPORT const int64_t GonetPhotoFileType;
 FOUNDATION_EXPORT const int64_t GonetStop;
+FOUNDATION_EXPORT const int64_t GonetVideoFileType;
 FOUNDATION_EXPORT const int64_t GonetWaiting;
 
 @interface Gonet : NSObject
++ (int64_t) audioPathNum;
++ (void) setAudioPathNum:(int64_t)v;
+
+// skipped variable AudioType with unsupported type: []string
+
 /**
  * CacheSize 缓冲区大小
  */
@@ -474,6 +539,13 @@ FOUNDATION_EXPORT const int64_t GonetWaiting;
 + (int64_t) chunkSize;
 + (void) setChunkSize:(int64_t)v;
 
+// skipped variable CloseBackupListByFileTypeMap with unsupported type: map[int]int
+
++ (int64_t) docPathNum;
++ (void) setDocPathNum:(int64_t)v;
+
+// skipped variable DocType with unsupported type: []string
+
 // skipped variable DownloadChannelLock with unsupported type: sync.Mutex
 
 // skipped variable DownloadStatusMap with unsupported type: map[int]int
@@ -482,10 +554,32 @@ FOUNDATION_EXPORT const int64_t GonetWaiting;
 
 // skipped variable DownloadWaitChan with unsupported type: chan gomobile-download-upload/gonet.DownloadWaitChanStruct
 
+// skipped variable FileTypeChannelMap with unsupported type: map[int]chan struct{}
+
+// skipped variable FileTypeMap with unsupported type: map[int]*int64
+
+// skipped variable FolderId with unsupported type: uint64
+
 + (NSString* _Nonnull) host;
 + (void) setHost:(NSString* _Nonnull)v;
 
+// skipped variable IdentificationMap with unsupported type: map[string]struct{}
+
+// skipped variable PhoneType with unsupported type: []string
+
++ (int64_t) photoPathNum;
++ (void) setPhotoPathNum:(int64_t)v;
+
+// skipped variable TraverChannel with unsupported type: chan struct{}
+
++ (id<GonetUploadCallback> _Nullable) uploadBackupCallback;
++ (void) setUploadBackupCallback:(id<GonetUploadCallback> _Nullable)v;
+
+// skipped variable UploadBackupTaskChan with unsupported type: chan gomobile-download-upload/gonet.UploadTask
+
 // skipped variable UploadChannelLock with unsupported type: sync.Mutex
+
+// skipped variable UploadFileExtMap with unsupported type: map[string]string
 
 // skipped variable UploadStatusMap with unsupported type: map[int]int
 
@@ -493,12 +587,24 @@ FOUNDATION_EXPORT const int64_t GonetWaiting;
 
 // skipped variable UploadWaitChan with unsupported type: chan gomobile-download-upload/gonet.UploadWaitChanStruct
 
++ (int64_t) videoPathNum;
++ (void) setVideoPathNum:(int64_t)v;
+
+// skipped variable VideoType with unsupported type: []string
+
 @end
 
 FOUNDATION_EXPORT void GonetCreateDownloadTask(long downloaderId, GonetDownloadManager* _Nullable fileDownloadManager, NSString* _Nullable file, NSString* _Nullable headerStr);
 
-// skipped function CreateUploadTask with unsupported parameter or return types
+/**
+ * DelAllDownloadFinishRecode 清除所有下载完成记录
+ */
+FOUNDATION_EXPORT void GonetDelAllDownloadFinishRecode(long userId, long areaId, NSString* _Nullable path);
 
+/**
+ * DelAllUploadFinishRecode 清除所有上传完成记录
+ */
+FOUNDATION_EXPORT void GonetDelAllUploadFinishRecode(long userId, long areaId, NSString* _Nullable path, long isBackup);
 
 /**
  * DeletePathLastStr 删除路径字符中，最后一个元素
@@ -506,9 +612,6 @@ FOUNDATION_EXPORT void GonetCreateDownloadTask(long downloaderId, GonetDownloadM
 FOUNDATION_EXPORT NSString* _Nonnull GonetDeletePathLastStr(NSString* _Nullable path);
 
 // skipped function ExecuteTask with unsupported parameter or return types
-
-
-// skipped function ExecuteUploadTask with unsupported parameter or return types
 
 
 // skipped function GetContent with unsupported parameter or return types
@@ -533,6 +636,11 @@ FOUNDATION_EXPORT GonetResourcesResp* _Nullable GonetGetDirFiles(NSString* _Null
 FOUNDATION_EXPORT NSString* _Nonnull GonetGetDownloadList(NSString* _Nullable path, NSString* _Nullable fileType, long pId, long userId, long areaId);
 
 /**
+ * GetDownloadUploadAllGoingTaskNum 输出正在进行的上传下载任务总和
+ */
+FOUNDATION_EXPORT NSString* _Nonnull GonetGetDownloadUploadAllGoingTaskNum(long userId, long areaId, NSString* _Nullable path);
+
+/**
  * GetFileDownloaderById 根据ID获取回文件下载器
  */
 FOUNDATION_EXPORT GonetFileDownloader* _Nullable GonetGetFileDownloaderById(long id_, NSString* _Nullable path, NSString* _Nullable headerStr);
@@ -545,16 +653,16 @@ FOUNDATION_EXPORT NSString* _Nonnull GonetGetFileName(NSString* _Nullable url, N
 // skipped function GetFileSize with unsupported parameter or return types
 
 
-/**
- * GetFileUploader url上传地址|dbPath数据库文件存放目录|filePath文件路径|headerStr header头
- */
-FOUNDATION_EXPORT GonetFileUploader* _Nullable GonetGetFileUploader(NSString* _Nullable url, NSString* _Nullable dbPath, NSString* _Nullable filePath, NSString* _Nullable fileName, NSString* _Nullable headerStr, NSString* _Nullable pwd, long userId, long areaId);
-
 // skipped function GetHash256Str with unsupported parameter or return types
 
 
 // skipped function GetHeaderMap with unsupported parameter or return types
 
+
+/**
+ * ios
+ */
+FOUNDATION_EXPORT NSString* _Nonnull GonetGetIdentifications(NSString* _Nullable header, NSString* _Nullable phoneName);
 
 /**
  * GetLastStrByPath 在路径字符中，获取最后一个元素（如"/a/b/c", 获取c）
@@ -571,6 +679,10 @@ FOUNDATION_EXPORT NSString* _Nonnull GonetGetNewDirName(NSString* _Nullable path
  * GetOnGoingTaskNum 输出任务数量
  */
 FOUNDATION_EXPORT NSString* _Nonnull GonetGetOnGoingTaskNum(NSString* _Nullable path, long userId, long areaId);
+
+FOUNDATION_EXPORT NSString* _Nonnull GonetGetUploadBackupList(NSString* _Nullable path, long userId, long areaId);
+
+FOUNDATION_EXPORT NSString* _Nonnull GonetGetUploadBackupOnSuccessList(NSString* _Nullable path, long userId, long areaId);
 
 /**
  * GetUploadList 获取上传列表
@@ -589,22 +701,20 @@ FOUNDATION_EXPORT GonetDownloadManager* _Nullable GonetNewDownloadManager(NSStri
 /**
  * NewFileDownloader 创建新的文件下载器,url下载连接，path存放地址， header自定义header
  */
-FOUNDATION_EXPORT GonetFileDownloader* _Nullable GonetNewFileDownloader(NSString* _Nullable url, NSString* _Nullable path, NSString* _Nullable headerStr, NSString* _Nullable pwd, long pid, long userId, long areaId, NSError* _Nullable* _Nullable error);
+FOUNDATION_EXPORT GonetFileDownloader* _Nullable GonetNewFileDownloader(NSString* _Nullable url, NSString* _Nullable thumbnailUrl, NSString* _Nullable path, NSString* _Nullable headerStr, NSString* _Nullable pwd, long pid, long userId, long areaId, NSError* _Nullable* _Nullable error);
 
 /**
  * NewFileUploader new一个文件上传器
 url上传地址|dbPath数据库文件存放目录|filePath文件路径|fileName文件名|headerStr header头
  */
-FOUNDATION_EXPORT GonetFileUploader* _Nullable GonetNewFileUploader(NSString* _Nullable url, NSString* _Nullable dbPath, NSString* _Nullable filePath, NSString* _Nullable fileName, NSString* _Nullable headerStr, NSString* _Nullable pwd, long userId, long areaId, NSError* _Nullable* _Nullable error);
+FOUNDATION_EXPORT GonetFileUploader* _Nullable GonetNewFileUploader(NSString* _Nullable url, NSString* _Nullable dbPath, NSString* _Nullable filePath, NSString* _Nullable fileName, NSString* _Nullable headerStr, NSString* _Nullable pwd, long userId, long areaId, long isBackup, NSString* _Nullable identification, long mobile, NSError* _Nullable* _Nullable error);
 
-FOUNDATION_EXPORT GonetUploadManager* _Nullable GonetNewUploadManager(NSString* _Nullable host, NSString* _Nullable dbPath, NSString* _Nullable headerStr);
+FOUNDATION_EXPORT GonetUploadManager* _Nullable GonetNewUploadManager(NSString* _Nullable host, NSString* _Nullable dbPath, NSString* _Nullable headerStr, long mobile);
 
 // skipped function PostFile with unsupported parameter or return types
 
 
 FOUNDATION_EXPORT void GonetQuitTask(GonetDownloadManager* _Nullable fileDownloadManager, long key, NSString* _Nullable operation);
-
-FOUNDATION_EXPORT void GonetQuitUploadTask(GonetUploadManager* _Nullable manager, long key, NSString* _Nullable operation);
 
 /**
  * SetDbPath 数据库文件路径
@@ -616,6 +726,8 @@ FOUNDATION_EXPORT void GonetSetDbPath(NSString* _Nullable path);
 @class GonetDownloadCallBack;
 
 @class GonetUploadCallBack;
+
+@class GonetUploadCallback;
 
 @class GonetWorker;
 
@@ -645,6 +757,15 @@ FOUNDATION_EXPORT void GonetSetDbPath(NSString* _Nullable path);
 - (void)onFinish:(NSString* _Nullable)p0;
 - (void)onStart:(NSString* _Nullable)p0;
 - (void)sendUploadResult:(NSString* _Nullable)p0;
+@end
+
+@interface GonetUploadCallback : NSObject <goSeqRefInterface, GonetUploadCallback> {
+}
+@property(strong, readonly) _Nonnull id _ref;
+
+- (nonnull instancetype)initWithRef:(_Nonnull id)ref;
+- (void)sendFailResult:(NSString* _Nullable)p0;
+- (void)sendFinishBackupTaskFileInfo:(NSString* _Nullable)p0;
 @end
 
 @interface GonetWorker : NSObject <goSeqRefInterface, GonetWorker> {

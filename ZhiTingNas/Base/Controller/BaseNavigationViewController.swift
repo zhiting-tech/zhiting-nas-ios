@@ -22,12 +22,17 @@ class BaseNavigationViewController: UINavigationController {
         view.backgroundColor = .white
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+    }
+    
     override func popViewController(animated: Bool) -> UIViewController? {
         if viewControllers.count == 1 {
             self.dismiss(animated: animated, completion: nil)
         }
         return super.popViewController(animated: animated)
     }
+    
 }
 
 class BaseProNavigationViewController: BaseNavigationViewController {

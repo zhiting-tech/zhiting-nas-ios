@@ -45,7 +45,7 @@ class UserAgreementAlertView: UIView {
     }
 
     private func clickUserAreement(){
-        print("点击《用户授权协议》")
+        print("点击《用户协议》")
         userAgreementCallback?(0)
     }
     

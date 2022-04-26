@@ -68,7 +68,7 @@ class OpenUrlManager {
                     let url =  cloudUrl.components(separatedBy: "https://").last
                     
                     if let cookie = HTTPCookie(properties: [
-                        HTTPCookiePropertyKey.domain : url?.components(separatedBy: "http://").last ?? "",
+                        HTTPCookiePropertyKey.domain : url?.components(separatedBy: "https://").last ?? "",
                         HTTPCookiePropertyKey.value : cookieValue,
                         HTTPCookiePropertyKey.path : "/",
                         HTTPCookiePropertyKey.name : "_session_"
@@ -88,10 +88,7 @@ class OpenUrlManager {
             
             // gomobile
             //授权成功，重新激活gomobile
-            GoFileNewManager.shared.setup()
-            GoFileNewManager.shared.gomobileRun()
-            
-            SceneDelegate.shared.window?.rootViewController = TabbarController()
+            SceneDelegate.shared.setupWindow()
         default:
             break
         }

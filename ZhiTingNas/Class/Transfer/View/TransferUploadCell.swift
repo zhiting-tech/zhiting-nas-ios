@@ -13,8 +13,9 @@ class TransferUploadCell: UITableViewCell,ReusableView {
     var stateBtnCallback: (() -> ())?
     
     lazy var iconImgView = ImageView().then{
-        $0.contentMode = .scaleAspectFill
         $0.image = .assets(.myFile_tab)
+        $0.contentMode = .scaleAspectFit
+        $0.layer.cornerRadius = 4
         $0.clipsToBounds = true
     }
     
@@ -65,7 +66,11 @@ class TransferUploadCell: UITableViewCell,ReusableView {
         progressView.setProgress(model.percentage, animated: false)
         fileStateLabel.text = "\(model.status)"
 //        if filePath == "" {
-        iconImgView.image = ZTCTool.fileImageBy(fileName: model.name)
+        if model.thumbnail_url != "" {
+            iconImgView.setImage(urlString: AreaManager.shared.currentArea.requestURL.absoluteString + "/wangpan/api/" + model.thumbnail_url, placeHolder: ZTCTool.fileImageBy(fileName: model.name))
+        }else{
+            iconImgView.image = ZTCTool.fileImageBy(fileName: model.name)
+        }
 //        }else{
 //            let fileTypeStrs = model.name.components(separatedBy: ".")
 //            switch fileTypeStrs.last?.lowercased() {
@@ -86,6 +91,7 @@ class TransferUploadCell: UITableViewCell,ReusableView {
         stateBtn.isHidden = false
         switch model.status {
         case 0:
+            progressView.isHidden = false
             fileStateLabel.text = "等待上传"
             fileStateLabel.textColor = .custom(.gray_a2a7ae)
             stateBtn.setImage(.assets(.btn_download), for: .normal)
@@ -96,11 +102,13 @@ class TransferUploadCell: UITableViewCell,ReusableView {
                 fileProgressLabel.text = "\(ZTCTool.convertFileSize(size: model.upload))/\(ZTCTool.convertFileSize(size: model.size))"
             }
         case 1:
+            progressView.isHidden = false
             fileStateLabel.text = "\(ZTCTool.convertFileSize(size:model.speeds))/s"
             fileStateLabel.textColor = .custom(.gray_a2a7ae)
             stateBtn.setImage(.assets(.btn_stop), for: .normal)
             fileProgressLabel.text = "\(ZTCTool.convertFileSize(size: model.upload))/\(ZTCTool.convertFileSize(size: model.size))"
         case 2:
+            progressView.isHidden = false
             fileStateLabel.text = "等待上传"
             fileStateLabel.textColor = .custom(.gray_a2a7ae)
             stateBtn.setImage(.assets(.btn_download), for: .normal)
@@ -135,12 +143,14 @@ class TransferUploadCell: UITableViewCell,ReusableView {
                 $0.width.greaterThanOrEqualTo(ZTScaleValue(50))
             }
         case 4:
+            progressView.isHidden = false
             fileStateLabel.text = "上传失败"
             fileStateLabel.textColor = .custom(.red_fe0000)
             stateBtn.setImage(.assets(.btn_reDownload), for: .normal)
             fileProgressLabel.text = "\(ZTCTool.convertFileSize(size: model.upload))/\(ZTCTool.convertFileSize(size: model.size))"
             
         case 5:
+            progressView.isHidden = false
             fileStateLabel.text = "生成临时文件中"
             fileStateLabel.textColor = .custom(.gray_a2a7ae)
             stateBtn.isHidden = true
@@ -153,6 +163,7 @@ class TransferUploadCell: UITableViewCell,ReusableView {
             break
         }
 
+        setupConstraints()
         
     }
 
@@ -192,51 +203,43 @@ class TransferUploadCell: UITableViewCell,ReusableView {
     }
     
     private func setupConstraints(){
-        iconImgView.snp.makeConstraints {
+        iconImgView.snp.remakeConstraints {
             $0.centerY.equalToSuperview()
             $0.left.equalTo(ZTScaleValue(15))
             $0.width.height.equalTo(ZTScaleValue(30))
         }
-        progressView.snp.makeConstraints {
+        progressView.snp.remakeConstraints {
             $0.centerY.equalTo(iconImgView).offset(ZTScaleValue(5))
             $0.left.equalTo(iconImgView.snp.right).offset(ZTScaleValue(15))
             $0.width.equalTo(ZTScaleValue(250))
             $0.height.equalTo(ZTScaleValue(2))
         }
         
-        fileNameLabel.snp.makeConstraints {
+        fileNameLabel.snp.remakeConstraints {
             $0.bottom.equalTo(progressView.snp.top).offset(-ZTScaleValue(5))
             $0.left.equalTo(progressView)
             $0.right.equalTo(stateBtn.snp.left).offset(ZTScaleValue(-10))
         }
 
-        fileProgressLabel.snp.makeConstraints {
+        fileProgressLabel.snp.remakeConstraints {
             $0.top.equalTo(progressView.snp.bottom).offset(ZTScaleValue(5))
             $0.left.equalTo(progressView)
             $0.width.greaterThanOrEqualTo(ZTScaleValue(50))
         }
         
-        fileStateLabel.snp.makeConstraints {
+        fileStateLabel.snp.remakeConstraints {
             $0.top.equalTo(progressView.snp.bottom).offset(ZTScaleValue(5))
             $0.right.equalTo(progressView)
             $0.width.greaterThanOrEqualTo(ZTScaleValue(50))
         }
         
-        stateBtn.snp.makeConstraints {
+        stateBtn.snp.remakeConstraints {
             $0.centerY.equalToSuperview()
             $0.right.equalTo(-ZTScaleValue(15))
             $0.width.height.equalTo(ZTScaleValue(20))
         }
     }
     
-    override func prepareForReuse() {
-        iconImgView.removeFromSuperview()
-        fileNameLabel.removeFromSuperview()
-        progressView.removeFromSuperview()
-        fileProgressLabel.removeFromSuperview()
-        fileStateLabel.removeFromSuperview()
-        stateBtn.removeFromSuperview()
-    }
     
     @objc private func buttonOnPress(sender:Button){
         stateBtnCallback?()

@@ -9,7 +9,7 @@ import UIKit
 
 class FileDetailFuntionCell: UICollectionViewCell,ReusableView {
     lazy var funtionImgView = ImageView().then{
-        $0.contentMode = .scaleAspectFill
+        $0.contentMode = .scaleAspectFit
         $0.image = .assets(.myFile_tab)
     }
     

@@ -17,6 +17,10 @@ enum AssetsName: String {
     case mine_tab_sel
     case navigation_back
     case arrow_right
+    case view_on
+    case view_off
+    case logo_white
+    case login_bg
     
     case close_button
     case family_sel
@@ -29,6 +33,7 @@ enum AssetsName: String {
     case transferList_icon
     case newFolder_icon
     case upload_icon
+    case download_arrow
     
     case fileSelected_normal
     case fileSelected_selected
@@ -68,6 +73,7 @@ enum AssetsName: String {
     case copy_black
     case resetName_black
     case delete_black
+    case preview_black
     
     case folder_big
     
@@ -95,6 +101,12 @@ enum AssetsName: String {
     case mine_storage
     case mine_doc
     
+    case icon_download_setting
+    case icon_backup
+    case icon_backup_background
+    case icon_backup_photo
+    case icon_backup_video
+    case icon_clean_cache
     case storage_add
     case storagePool_resetName
     case icon_menu
@@ -144,6 +156,26 @@ enum AssetsName: String {
     
     case selected_blueBG
 
+    case playBtn
+    case stopBtn
+    case backBtn_white
+    case fullScreen
+    case thumbImage
+    case thumbImage_blue
+    case music_bg
+    case music_playBtn
+    case music_stopBtn
+    case music_gb_logo
+    
+    case imageSet_Placehoder
+    case number_1
+    case number_2
+    
+    case areas_icon_unSelected
+    case areas_icon_selected
+    case arrow_down_regular
+    case arrow_up_regular
+    
     var assetName: String {
         return self.rawValue
     }

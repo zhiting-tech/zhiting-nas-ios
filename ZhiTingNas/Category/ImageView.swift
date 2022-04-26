@@ -11,14 +11,15 @@ import Kingfisher
 
 class ImageView: UIImageView {
 
-    func setImage(urlString: String, placeHolder: UIImage? = nil) {
+    func setImage(urlString: String, placeHolder: UIImage? = nil, isAppendingPercent: Bool = true, complete:((UIImage?)->())? = nil) {
         contentMode = .scaleAspectFit
-        guard let queryStr = urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+        guard let queryStr = isAppendingPercent ? urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) : urlString,
               let url = URL(string: queryStr)
         else {
             image = placeHolder
             return
         }
+
         var options = [KingfisherOptionsInfoItem]()
         /// retry
         let retry = DelayRetryStrategy(maxRetryCount: 3, retryInterval: .seconds(30))
@@ -26,7 +27,8 @@ class ImageView: UIImageView {
         /// 请求头token
         let requestModifier = AnyModifier {  (request) -> URLRequest? in
             var modifierRequest = request
-//            modifierRequest.setValue("\(AppDelegate.shared.appDependency.currentAreaManager.currentArea.id)", forHTTPHeaderField: "Area-ID")
+            modifierRequest.setValue(AreaManager.shared.currentArea.id, forHTTPHeaderField: "Area-ID")
+            modifierRequest.setValue(AreaManager.shared.currentArea.scope_token, forHTTPHeaderField: "scope-token")
             return modifierRequest
         }
         
@@ -35,7 +37,14 @@ class ImageView: UIImageView {
         options.append(.retryStrategy(retry))
         options.append(.requestModifier(requestModifier))
         
-        kf.setImage(with: url,placeholder: placeHolder, options: options)
+        kf.setImage(with: url, placeholder: placeHolder, options: options) { result in
+            switch result {
+            case .success(let res):
+                complete?(res.image)
+            default:
+                complete?(nil)
+            }
+        }
 
     
     }

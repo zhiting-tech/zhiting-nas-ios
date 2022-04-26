@@ -86,6 +86,7 @@ class AreaManager {
     
     /// 清除本地家庭列表缓存
     func clearAreas() {
+        clearAreaTempUrls()
         cacheAreas(areas: [])
     }
     
@@ -96,7 +97,7 @@ class AreaManager {
         if areas.filter({ $0.scope_token == area.scope_token }).count == 0 || authExpiredAlert != nil {
             return
         }
-
+        clearAreaTempUrl(area: area)
         areas.removeAll(where: { $0.scope_token == area.scope_token })
         cacheAreas(areas: areas)
         
@@ -106,14 +107,25 @@ class AreaManager {
             if let area = areas.first { // 切换家庭
                 self.currentArea = area
             } else { // 若无家庭可切，则回到授权页面
-                let vc = LoginViewController()
-                let nav = UINavigationController(rootViewController: vc)
-                SceneDelegate.shared.window?.rootViewController = nav
+                SceneDelegate.shared.setupWindow()
             }
             authExpiredAlert?.removeFromSuperview()
             authExpiredAlert = nil
         }
         SceneDelegate.shared.window?.addSubview(authExpiredAlert!)
+    }
+    
+    func clearAreaTempUrl(area: Area) {
+        let key = area.sa_user_token
+        UserDefaults.standard.setValue(nil, forKey: key)
+    }
+
+    func clearAreaTempUrls() {
+        let areas = getAreaList()
+        areas.forEach {
+            let key = $0.sa_user_token
+            UserDefaults.standard.setValue(nil, forKey: key)
+        }
     }
 
 }
